@@ -1,6 +1,6 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useMemo } from "react";
 import { Link } from "react-router-dom";
 import * as XLSX from 'xlsx';
 import settingsIcon from '../assets/settingIcon.svg';
@@ -677,6 +677,12 @@ export const Delivered = () => {
   };
 
   const { user, logout } = useAuth();
+  const navItems = useMemo(() => {
+    const base = navigationItems.map(i => ({ ...i }));
+    return user?.role === 'admin'
+      ? [...base, { id: 'management', label: 'Users', icon: usersIcon, href: '/management', isActive: false }]
+      : base;
+  }, [user]);
   const messengerOptions = Array.from(new Set((Array.isArray(deliveries) ? deliveries : []).map(d => d.messenger))).filter(Boolean);
   const formatDateText = (d) => {
     if (!d) return "";
@@ -782,7 +788,7 @@ export const Delivered = () => {
               />
               
               <div className="flex flex-col gap-2 mb-8">
-                {navigationItems.map((item) => {
+                {navItems.map((item) => {
                   const ItemWrapper = item.href !== "#" ? Link : "button";
                   const wrapperProps = item.href !== "#" ? { to: item.href } : {};
 
@@ -844,7 +850,7 @@ export const Delivered = () => {
           />
           
           <div className="flex flex-col gap-3">
-            {navigationItems.map((item) => {
+            {navItems.map((item) => {
               const ItemWrapper = item.href !== "#" ? Link : "button";
               const wrapperProps = item.href !== "#" ? { to: item.href } : {};
 
@@ -1325,3 +1331,4 @@ export const Delivered = () => {
 };
 
 export default Delivered;
+import usersIcon from '../assets/users.svg';

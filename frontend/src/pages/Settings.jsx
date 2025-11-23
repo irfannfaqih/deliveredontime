@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useMemo } from "react";
 import { Link } from "react-router-dom";
 import settingsIcon from '../assets/settingIcon.svg';
 import { useAuth } from "../hooks/useAPI";
@@ -70,6 +70,13 @@ export const Settings = () => {
     newPassword: "",
     confirmPassword: "",
   });
+
+  const navItems = useMemo(() => {
+    const base = navigationItems.map(i => ({ ...i }));
+    return user?.role === 'admin'
+      ? [...base, { id: 'management', label: 'Users', icon: usersIcon, href: '/management', isActive: false }]
+      : base;
+  }, [user]);
 
   const profileMenuRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -247,6 +254,8 @@ export const Settings = () => {
     }
   };
 
+  
+
   return (
     <>
       <style>{`
@@ -307,7 +316,7 @@ export const Settings = () => {
                 />
                 
                 <div className="flex flex-col gap-2 mb-8">
-                  {navigationItems.map((item) => {
+                  {navItems.map((item) => {
                     const ItemWrapper = item.href !== "#" ? Link : "button";
                     const wrapperProps = item.href !== "#" ? { to: item.href } : {};
 
@@ -374,7 +383,7 @@ export const Settings = () => {
             />
             
             <div className="flex flex-col gap-3">
-              {navigationItems.map((item) => {
+              {navItems.map((item) => {
                 const ItemWrapper = item.href !== "#" ? Link : "button";
                 const wrapperProps = item.href !== "#" ? { to: item.href } : {};
             
@@ -407,6 +416,7 @@ export const Settings = () => {
             </div>
           </div>
 
+          
           <Link to="/settings" className="flex items-center gap-[14px] justify-start h-auto px-2.5 py-1.5 rounded-lg bg-[#FFF1E6]">
             <img
               className="w-[16px] h-[16px] flex-shrink-0"
@@ -739,3 +749,4 @@ export const Settings = () => {
 };
 
 export default Settings;
+import usersIcon from '../assets/users.svg';

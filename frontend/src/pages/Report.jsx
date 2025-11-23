@@ -1,6 +1,6 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useMemo } from "react";
 import { Link } from "react-router-dom";
 import * as XLSX from "xlsx";
 import settingsIcon from '../assets/settingIcon.svg';
@@ -320,6 +320,12 @@ export const Report = () => {
   const { deliveries } = useDeliveries();
   const { bbmRecords } = useBBM();
   const { user, logout } = useAuth();
+  const navItems = useMemo(() => {
+    const base = navigationItems.map(i => ({ ...i }));
+    return user?.role === 'admin'
+      ? [...base, { id: 'management', label: 'Users', icon: usersIcon, href: '/management', isActive: false }]
+      : base;
+  }, [user]);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -450,7 +456,7 @@ export const Report = () => {
               />
               
               <div className="flex flex-col gap-2 mb-8">
-                {navigationItems.map((item) => {
+                {navItems.map((item) => {
                   const ItemWrapper = item.href !== "#" ? Link : "button";
                   const wrapperProps = item.href !== "#" ? { to: item.href } : {};
 
@@ -512,7 +518,7 @@ export const Report = () => {
           />
           
           <div className="flex flex-col gap-3">
-            {navigationItems.map((item) => {
+            {navItems.map((item) => {
               const ItemWrapper = item.href !== "#" ? Link : "button";
               const wrapperProps = item.href !== "#" ? { to: item.href } : {};
 
@@ -891,3 +897,4 @@ export const Report = () => {
 };
 
 export default Report;
+import usersIcon from '../assets/users.svg';

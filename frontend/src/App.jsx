@@ -11,6 +11,8 @@ import Login from './pages/Login';
 import Report from './pages/Report';
 import ReportDetail from './pages/ReportDetail';
 import Settings from './pages/Settings';
+import Management from './pages/Management';
+import InputUser from './pages/InputUser';
 
 function App() {
   return (
@@ -31,6 +33,8 @@ function App() {
         <Route path="/customer" element={<Customer />} />
         <Route path="/customer/input" element={<CustomerInput />} />
         <Route path="/settings" element={<Settings />} />
+        <Route path="/management" element={<Management />} />
+        <Route path="/management/input" element={<InputUser />} />
       </Routes>
     </Router>
   );

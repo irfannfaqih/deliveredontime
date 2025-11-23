@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useMemo } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useDeliveries, useAuth } from "../hooks/useAPI";
 import settingsIcon from '../assets/settingIcon.svg';
@@ -199,7 +199,13 @@ export const ReportDetail = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const profileMenuRef = useRef(null);
   const { deliveries } = useDeliveries({ date });
-  const { logout } = useAuth();
+  const { user, logout } = useAuth();
+  const navItems = useMemo(() => {
+    const base = navigationItems.map(i => ({ ...i }));
+    return user?.role === 'admin'
+      ? [...base, { id: 'management', label: 'Users', icon: usersIcon, href: '/management', isActive: false }]
+      : base;
+  }, [user]);
 
   const selectedDate = date ? formatDateText(decodeURIComponent(date)) : "";
 
@@ -278,7 +284,7 @@ export const ReportDetail = () => {
               />
               
               <div className="flex flex-col gap-2 mb-8">
-                {navigationItems.map((item) => {
+                {navItems.map((item) => {
                   const ItemWrapper = item.href !== "#" ? Link : "button";
                   const wrapperProps = item.href !== "#" ? { to: item.href } : {};
 
@@ -340,7 +346,7 @@ export const ReportDetail = () => {
           />
           
           <div className="flex flex-col gap-3">
-            {navigationItems.map((item) => {
+            {navItems.map((item) => {
               const ItemWrapper = item.href !== "#" ? Link : "button";
               const wrapperProps = item.href !== "#" ? { to: item.href } : {};
 
@@ -662,3 +668,4 @@ export const ReportDetail = () => {
 };
 
 export default ReportDetail;
+import usersIcon from '../assets/users.svg';

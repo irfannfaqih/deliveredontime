@@ -1,5 +1,5 @@
 import { Edit2Icon, Trash2Icon, XIcon } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useMemo } from "react";
 import { Link } from "react-router-dom";
 import settingsIcon from '../assets/settingIcon.svg';
 import { useAuth, useCustomers } from "../hooks/useAPI";
@@ -593,6 +593,12 @@ export const Customer = () => {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const profileMenuRef = useRef(null);
   const { user, logout } = useAuth();
+  const navItems = useMemo(() => {
+    const base = navigationItems.map(i => ({ ...i }));
+    return user?.role === 'admin'
+      ? [...base, { id: 'management', label: 'Users', icon: usersIcon, href: '/management', isActive: false }]
+      : base;
+  }, [user]);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -710,7 +716,7 @@ export const Customer = () => {
               />
               
               <div className="flex flex-col gap-2 mb-8">
-                {navigationItems.map((item) => {
+                {navItems.map((item) => {
                   const ItemWrapper = item.href !== "#" ? Link : "button";
                   const wrapperProps = item.href !== "#" ? { to: item.href } : {};
 
@@ -772,7 +778,7 @@ export const Customer = () => {
           />
           
           <div className="flex flex-col gap-3">
-            {navigationItems.map((item) => {
+            {navItems.map((item) => {
               const ItemWrapper = item.href !== "#" ? Link : "button";
               const wrapperProps = item.href !== "#" ? { to: item.href } : {};
           
@@ -1184,3 +1190,4 @@ export const Customer = () => {
 };
 
 export default Customer;
+import usersIcon from '../assets/users.svg';

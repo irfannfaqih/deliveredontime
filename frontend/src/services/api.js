@@ -87,6 +87,55 @@ export const authAPI = {
     }
   },
 
+  createUser: async (userData) => {
+    try {
+      const response = await api.post('/auth/admin/create-user', userData);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Admin: list users
+  listUsers: async () => {
+    try {
+      const response = await api.get('/auth/admin/users');
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Admin: update user
+  updateUser: async (id, payload) => {
+    try {
+      const response = await api.put(`/auth/admin/users/${id}`, payload);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Admin: reset user password
+  resetUserPassword: async (id, newPassword) => {
+    try {
+      const response = await api.post(`/auth/admin/users/${id}/reset-password`, { password: newPassword });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Admin: delete user
+  deleteUser: async (id) => {
+    try {
+      const response = await api.delete(`/auth/admin/users/${id}`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
   // Get user profile
   getProfile: async () => {
     try {

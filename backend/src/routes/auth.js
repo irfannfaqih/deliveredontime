@@ -2,7 +2,7 @@ import { Router } from 'express'
 import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
 import { query } from '../db/mysql.js'
-import { requireAuth } from '../middleware/auth.js'
+import { requireAuth, requireAdmin } from '../middleware/auth.js'
 
 const router = Router()
 
@@ -83,3 +83,77 @@ router.post('/refresh', (req, res) => {
 })
 
 export default router
+
+router.post('/admin/create-user', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const { email, password, name, role, phone } = req.body || {}
+    if (!email || !password || !name) return res.status(400).json({ error: 'Invalid' })
+    const allowed = ['admin', 'messenger']
+    const rrole = allowed.includes(String(role)) ? String(role) : 'messenger'
+    const found = await query('SELECT id FROM users WHERE email = ?', [email])
+    if (found.length) return res.status(409).json({ error: 'Exists' })
+    const hash = bcrypt.hashSync(password, 10)
+    const r = await query('INSERT INTO users (name,email,password,role,status,phone,is_active) VALUES (?,?,?,?,?,?,?)', [name, email, hash, rrole, 'active', phone || null, 1])
+    const id = r.insertId
+    const user = await query('SELECT id,name,email,role,status,phone,is_active FROM users WHERE id=?', [id])
+    res.json({ data: { user: user[0] } })
+  } catch (e) {
+    res.status(500).json({ error: String(e.message || e) })
+  }
+})
+
+router.get('/admin/users', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const rows = await query('SELECT id,name,email,role,status,phone,is_active,created_at,updated_at FROM users ORDER BY id DESC')
+    res.json({ data: rows })
+  } catch (e) {
+    res.status(500).json({ error: String(e.message || e) })
+  }
+})
+
+router.put('/admin/users/:id', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const id = Number(req.params.id)
+    if (!id) return res.status(400).json({ error: 'Invalid user id' })
+    const allowedRoles = ['admin', 'messenger']
+    const { name, phone, role, status, is_active, email } = req.body || {}
+    const roleVal = allowedRoles.includes(String(role)) ? String(role) : null
+    const isActiveVal = typeof is_active === 'number' ? is_active : (typeof is_active === 'boolean' ? (is_active ? 1 : 0) : null)
+    if (email) {
+      const exists = await query('SELECT id FROM users WHERE email = ? AND id <> ?', [email, id])
+      if (exists.length) return res.status(409).json({ error: 'Email exists' })
+    }
+    await query('UPDATE users SET name=COALESCE(?,name), email=COALESCE(?,email), phone=COALESCE(?,phone), role=COALESCE(?,role), status=COALESCE(?,status), is_active=COALESCE(?,is_active) WHERE id=?', [name || null, email || null, phone || null, roleVal, status || null, isActiveVal, id])
+    const rows = await query('SELECT id,name,email,role,status,phone,is_active,created_at,updated_at FROM users WHERE id=?', [id])
+    res.json({ data: rows[0] })
+  } catch (e) {
+    res.status(500).json({ error: String(e.message || e) })
+  }
+})
+
+router.post('/admin/users/:id/reset-password', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const id = Number(req.params.id)
+    const { password } = req.body || {}
+    if (!id || !password) return res.status(400).json({ error: 'Invalid' })
+    const hash = bcrypt.hashSync(password, 10)
+    await query('UPDATE users SET password=?, last_password_change=NOW() WHERE id=?', [hash, id])
+    res.json({ data: true })
+  } catch (e) {
+    res.status(500).json({ error: String(e.message || e) })
+  }
+})
+
+router.delete('/admin/users/:id', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const id = Number(req.params.id)
+    if (!id) return res.status(400).json({ error: 'Invalid user id' })
+    if (String(req.user.sub) === String(id)) return res.status(400).json({ error: 'Cannot delete self' })
+    const rows = await query('SELECT id FROM users WHERE id=?', [id])
+    if (!rows.length) return res.status(404).json({ error: 'Not found' })
+    await query('DELETE FROM users WHERE id=?', [id])
+    res.json({ data: true })
+  } catch (e) {
+    res.status(500).json({ error: String(e.message || e) })
+  }
+})

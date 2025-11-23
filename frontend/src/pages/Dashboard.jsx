@@ -6,6 +6,7 @@ import iconOntimePlane from "../assets/ontimePlane.svg";
 import iconOuttime from "../assets/outtime.svg";
 import searchIcon from "../assets/searchIcon.svg";
 import settingsIcon from '../assets/settingIcon.svg';
+import usersIcon from '../assets/users.svg';
 import iconTotal from "../assets/total.svg";
 import { useAPIData, useAuth, useDeliveries } from "../hooks/useAPI";
 import { deliveredAPI } from "../services/api";
@@ -64,6 +65,13 @@ export const Dashboard = () => {
   const { data: statsResp } = useAPIData(() => deliveredAPI.getStats());
   const stats = statsResp?.data ?? statsResp;
   const { user, logout } = useAuth();
+
+  const navItems = useMemo(() => {
+    const base = navigationItems.map(i => ({ ...i }));
+    return user?.role === 'admin'
+      ? [...base, { id: 'management', label: 'Users', icon: usersIcon, href: '/management', isActive: false }]
+      : base;
+  }, [user]);
 
   const total = useMemo(() => {
     if (stats && typeof stats.total === 'number') return stats.total;
@@ -139,7 +147,7 @@ export const Dashboard = () => {
               />
               
               <div className="flex flex-col gap-2 mb-8">
-                {navigationItems.map((item) => {
+                {navItems.map((item) => {
                   const ItemWrapper = item.href !== "#" ? Link : "button";
                   const wrapperProps = item.href !== "#" ? { to: item.href } : {};
 
@@ -201,7 +209,7 @@ export const Dashboard = () => {
           />
           
           <div className="flex flex-col gap-3">
-            {navigationItems.map((item) => {
+            {navItems.map((item) => {
               const ItemWrapper = item.href !== "#" ? Link : "button";
               const wrapperProps = item.href !== "#" ? { to: item.href } : {};
 
@@ -232,14 +240,13 @@ export const Dashboard = () => {
 
         <Link to="/settings" className="flex items-center gap-[14px] justify-start h-auto px-2.5 py-1.5 rounded-lg transition-all duration-300 ease-in-out hover:bg-[#FFF1E6] hover:translate-x-1">
           <img className="w-[16px] h-[16px] flex-shrink-0" alt="Settings" src={settingsIcon} />
-          <span className="font-[Lato] font-bold text-[#c7c7c7] text-[13px] tracking-[0] leading-normal transition-colors duration-300">
-            Settings
-          </span>
+          <span className="font-[Lato] font-bold text-[#c7c7c7] text-[13px] tracking-[0] leading-normal transition-colors duration-300">Settings</span>
         </Link>
       </aside>
 
       {/* Main Content - Hanya dashboard content yang diubah */}
       <main className="flex-1 px-4 sm:px-6 lg:px-[30px] py-4 lg:py-[24px] overflow-auto max-h-screen pt-20 lg:pt-[24px]">
+        
         {/* Search Bar - Enhanced untuk mobile/tablet */}
         <div className="flex w-full items-start justify-start mb-6 sm:mb-8 lg:mb-[19px] max-w-full lg:max-w-[800px] translate-y-[-1rem] animate-fade-in opacity-0 [--animation-delay:0ms]">
           <div className="flex flex-1 items-center justify-center gap-3 sm:gap-4 lg:gap-2 px-4 sm:px-6 lg:px-3 py-4 sm:py-5 lg:py-3 bg-white rounded-[16px] sm:rounded-[20px] lg:rounded-[10px] border-2 border-[#e5e5e5] lg:border lg:border-[#cccccccc] shadow-lg sm:shadow-xl lg:shadow-none hover:shadow-xl lg:hover:shadow-none hover:border-[#faa463] transition-all duration-300">
@@ -484,11 +491,16 @@ export const Dashboard = () => {
                 </svg>
               </button>
             </Link>
+            <button onClick={logout} className="h-[32px] w-[32px] rounded-[44.59px] border-[0.89px] border-[#9e9e9e] hover:bg-gray-100 transition-colors flex items-center justify-center bg-white">
+              <svg className="w-[13px] h-[13px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+              </svg>
+            </button>
           </div>
         </div>
       </aside>
 
-      <style jsx>{`
+      <style>{`
         @keyframes fade-in {
           from {
             opacity: 0;
