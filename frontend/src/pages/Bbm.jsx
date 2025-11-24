@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import settingsIcon from '../assets/settingIcon.svg';
 import { useAuth, useBBM } from "../hooks/useAPI";
 import { normalizeUrl } from '../utils/url';
-import { fileAPI, authAPI } from "../services/api";
+import { fileAPI, authAPI, deliveredAPI } from "../services/api";
 
 const navigationItems = [
   {
@@ -244,16 +244,22 @@ const EditBBMModal = ({ isOpen, onClose, data, onSave, attachments, bbmId, onUpl
     let mounted = true;
     (async () => {
       try {
-        const r = await authAPI.listUsers();
+        const r = await authAPI.listMessengers();
         const list = r?.data ?? r;
         const ms = Array.isArray(list)
-          ? list
-              .filter(u => String(u.role) === 'messenger' && (u.is_active === 1 || u.is_active === true))
-              .map(u => ({ id: u.id, name: u.name }))
+          ? list.map(u => ({ id: u.id, name: u.name }))
           : [];
         if (mounted) setMessengers(ms);
       } catch {
-        if (mounted) setMessengers([]);
+        try {
+          const resp = await deliveredAPI.getAll();
+          const data = resp?.data ?? resp;
+          const rows = Array.isArray(data?.data) ? data.data : (Array.isArray(data) ? data : []);
+          const uniq = Array.from(new Set(rows.map(x => String(x.messenger || '').trim()).filter(Boolean))).map((name, idx) => ({ id: idx + 1, name }));
+          if (mounted) setMessengers(uniq);
+        } catch {
+          if (mounted) setMessengers([]);
+        }
       }
     })();
     return () => { mounted = false };

@@ -111,6 +111,16 @@ router.get('/admin/users', requireAuth, requireAdmin, async (req, res) => {
   }
 })
 
+// List messenger users (accessible to any authenticated role)
+router.get('/messengers', requireAuth, async (req, res) => {
+  try {
+    const rows = await query('SELECT id,name FROM users WHERE role="messenger" AND is_active=1 ORDER BY name ASC')
+    res.json({ data: rows })
+  } catch (e) {
+    res.status(500).json({ error: String(e.message || e) })
+  }
+})
+
 router.put('/admin/users/:id', requireAuth, requireAdmin, async (req, res) => {
   try {
     const id = Number(req.params.id)

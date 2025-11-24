@@ -106,6 +106,16 @@ export const authAPI = {
     }
   },
 
+  // List messenger users (for all authenticated roles)
+  listMessengers: async () => {
+    try {
+      const response = await api.get('/auth/messengers');
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
   // Admin: update user
   updateUser: async (id, payload) => {
     try {
