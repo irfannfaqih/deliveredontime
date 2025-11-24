@@ -8,6 +8,7 @@ import { normalizeUrl } from '../utils/url';
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
+import sefasLogoPng from '../assets/sefas-logo.png';
 
 const navigationItems = [
   {
@@ -470,32 +471,202 @@ const ExportModal = ({ isOpen, onClose, rows = [] }) => {
 
   if (!isOpen) return null;
 
-  const handleExportPDF = () => {
-    const head = [["Nama Customer","No Hp","Alamat","Google Maps"]];
-    const body = (Array.isArray(rows) ? rows : []).map(r => [
+  const handleExportPDF = async () => {
+    const apiUrl = (import.meta.env.VITE_API_URL || 'http://localhost:3000/api')
+    const logoSrc = import.meta.env.VITE_COMPANY_LOGO || sefasLogoPng
+    const companyName = (import.meta.env.VITE_COMPANY_NAME || 'PT. SEFAS PELINDOTAMA')
+    const companyAddr = (import.meta.env.VITE_COMPANY_ADDRESS || 'Landasan Ulin Sel., Kec. Liang Anggang, Kota Banjar Baru, Kalimantan Selatan 70722')
+    const companyPhone = (import.meta.env.VITE_COMPANY_PHONE || '05116747319')
+    const companyEmail = (import.meta.env.VITE_COMPANY_EMAIL || '')
+
+    const loadImage = async (src) => {
+      if (!src) return null
+      const finalSrc = src
+      const isSvg = String(finalSrc).toLowerCase().endsWith('.svg')
+      if (isSvg) {
+        try {
+          const text = await (await fetch(finalSrc)).text()
+          const blob = new Blob([text], { type: 'image/svg+xml' })
+          const url = URL.createObjectURL(blob)
+          const result = await new Promise((resolve) => {
+            const img = new Image()
+            img.onload = () => {
+              const canvas = document.createElement('canvas')
+              canvas.width = img.width || 400
+              canvas.height = img.height || 120
+              const ctx = canvas.getContext('2d')
+              ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+              URL.revokeObjectURL(url)
+              resolve({ dataUrl: canvas.toDataURL('image/png'), width: canvas.width, height: canvas.height, format: 'PNG' })
+            }
+            img.src = url
+          })
+          return result
+        } catch { return null }
+      }
+      try {
+        const result = await new Promise((resolve) => {
+          const img = new Image()
+          img.crossOrigin = 'anonymous'
+          img.onload = () => {
+            const canvas = document.createElement('canvas')
+            canvas.width = img.naturalWidth || img.width || 400
+            canvas.height = img.naturalHeight || img.height || 120
+            const ctx = canvas.getContext('2d')
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+            const isPng = String(finalSrc).toLowerCase().endsWith('.png')
+            const dataUrl = isPng ? canvas.toDataURL('image/png') : canvas.toDataURL('image/jpeg', 0.72)
+            resolve({ dataUrl, width: canvas.width, height: canvas.height, format: isPng ? 'PNG' : 'JPEG' })
+          }
+          img.src = finalSrc
+        })
+        return result
+      } catch { return null }
+    }
+
+    const rowsWithLampiran = await Promise.all((Array.isArray(rows) ? rows : []).map(async (r) => {
+      try {
+        const resp = await fileAPI.getAll({ customer_id: r.id })
+        const links = Array.isArray(resp?.data) ? resp.data.map(att => `${apiUrl}/files/raw/${att.id}`) : []
+        return { ...r, lampiranLinks: links }
+      } catch { return { ...r, lampiranLinks: [] } }
+    }))
+
+    const doc = new jsPDF({ unit: 'mm', format: 'a4', compress: true, putOnlyUsedFonts: true, floatPrecision: 2 })
+    const pw = doc.internal.pageSize.getWidth()
+    const ph = doc.internal.pageSize.getHeight()
+    const logo = await loadImage(logoSrc)
+    const ml = 16
+    const mr = 16
+    let lw = 0
+    let lh = 0
+    const lx = ml
+    const ly = 16
+    if (logo?.dataUrl && logo?.width && logo?.height) {
+      const maxW = 34
+      const maxH = 20
+      const scale = Math.min(maxW / logo.width, maxH / logo.height)
+      lw = Math.max(1, Math.round(logo.width * scale))
+      lh = Math.max(1, Math.round(logo.height * scale))
+      try { doc.addImage(logo.dataUrl, logo.format || 'PNG', lx, ly, lw, lh) } catch { void 0 }
+    }
+    doc.setTextColor(35, 35, 35)
+    const tx = lx + lw + 8
+    doc.setFontSize(16)
+    const ny = ly + (lh ? Math.round(lh * 0.55) : 20)
+    doc.text(String(companyName), tx + 6, ny)
+    doc.setFontSize(9.5)
+    const contactLine = companyEmail ? `${companyAddr} | ${companyPhone} | ${companyEmail}` : `${companyAddr} | ${companyPhone}`
+    const cy = ny + 5
+    doc.text(contactLine, tx + 6, cy, { maxWidth: pw - (tx + 6) })
+    doc.setFontSize(13)
+    doc.setDrawColor(200)
+    doc.setLineWidth(0.6)
+    const sepX = lx + lw + 4
+    const sepTop = ly
+    const sepBottom = Math.max(cy, ly + lh)
+    doc.line(sepX, sepTop, sepX, sepBottom)
+    const ty = cy + 14
+    doc.text('Laporan Customer', ml, ty)
+    doc.setDrawColor(250, 175, 119)
+    doc.setLineWidth(0.7)
+    doc.setFillColor(248, 248, 248)
+    const tableStartY = ty + 12
+    const contentW = pw - (ml + mr)
+    const contentH = ph - (tableStartY + 22)
+    doc.rect(ml, tableStartY, contentW, contentH, 'F')
+    if (logo?.dataUrl) {
+      try {
+        if (doc.GState) {
+          const gs = new doc.GState({ opacity: 0.08 })
+          doc.setGState(gs)
+        }
+        const wmMaxW = pw * 0.6
+        const wmScale = logo.width && logo.height ? Math.min(wmMaxW / logo.width, (ph * 0.6) / logo.height) : 1
+        const wmW = logo.width ? Math.round(logo.width * wmScale) : 120
+        const wmH = logo.height ? Math.round(logo.height * wmScale) : 60
+        const wmX = (pw - wmW) / 2
+        const wmY = (ph - wmH) / 2 + 6
+        doc.addImage(logo.dataUrl, logo.format || 'PNG', wmX, wmY, wmW, wmH)
+        if (doc.GState) {
+          const gsReset = new doc.GState({ opacity: 1 })
+          doc.setGState(gsReset)
+        }
+      } catch { void 0 }
+    }
+    const head = [["Nama","No HP","Alamat","Maps","Lampiran"]]
+    const body = rowsWithLampiran.map(r => [
       r.namaCustomer || "",
       r.noHp || "",
       r.alamat || "",
-      r.googleMaps || ""
-    ]);
-    const doc = new jsPDF();
-    autoTable(doc, { head, body, styles: { fontSize: 8 } });
-    const fn = `Customer_Report.pdf`;
-    doc.save(fn);
+      r.googleMaps || "",
+      Array.isArray(r.lampiranLinks) && r.lampiranLinks.length ? r.lampiranLinks.join('\n') : ''
+    ])
+    autoTable(doc, {
+      head,
+      body,
+      startY: tableStartY,
+      margin: { left: ml, right: mr, bottom: 26 },
+      tableWidth: pw - (ml + mr),
+      styles: { fontSize: 7.6, halign: 'left', valign: 'middle', cellPadding: 1.8, overflow: 'linebreak' },
+      headStyles: { fillColor: [250,175,119], textColor: 255, fontSize: 8.2, halign: 'center', valign: 'middle', cellPadding: 1.9 },
+      alternateRowStyles: { fillColor: [253, 244, 236] },
+      columnStyles: { 0: { halign: 'left' }, 1: { halign: 'center' }, 2: { halign: 'left' }, 3: { halign: 'left' }, 4: { halign: 'left' } },
+      didDrawPage: (data) => {
+        const pw2 = doc.internal.pageSize.getWidth()
+        const ph2 = doc.internal.pageSize.getHeight()
+        doc.setFontSize(9)
+        doc.setTextColor(120)
+        const printedAt = new Date()
+        const dd = String(printedAt.getDate()).padStart(2, '0')
+        const mm = String(printedAt.getMonth()+1).padStart(2, '0')
+        const yyyy = printedAt.getFullYear()
+        const hh = String(printedAt.getHours()).padStart(2, '0')
+        const ii = String(printedAt.getMinutes()).padStart(2, '0')
+        doc.text(`Dicetak: ${dd}/${mm}/${yyyy} ${hh}:${ii}`, 16, ph2 - 11)
+        const totalPages = doc.internal.getNumberOfPages()
+        doc.text(`Halaman ${data.pageNumber} dari ${totalPages}`, pw2 - 48, ph2 - 11)
+        doc.setDrawColor(250, 175, 119)
+        doc.setLineWidth(0.5)
+        doc.line(12, ph2 - 14, pw2 - 12, ph2 - 14)
+        doc.setTextColor(80)
+        doc.setFontSize(9)
+        const f3 = companyEmail ? `${companyEmail}` : ''
+        if (f3) doc.text(f3, pw2 - 14 - doc.getTextWidth(f3), ph2 - 6)
+      }
+    })
+    const fn = `Customer_Report.pdf`
+    doc.save(fn)
   };
 
-  const handleExportExcel = () => {
-    const data = (Array.isArray(rows) ? rows : []).map(r => ({
+  const handleExportExcel = async () => {
+    const apiUrl = (import.meta.env.VITE_API_URL || 'http://localhost:3000/api')
+    const rowsWithLampiran = await Promise.all((Array.isArray(rows) ? rows : []).map(async (r) => {
+      try {
+        const resp = await fileAPI.getAll({ customer_id: r.id })
+        const links = Array.isArray(resp?.data) ? resp.data.map(att => `${apiUrl}/files/raw/${att.id}`) : []
+        return { ...r, lampiranLinks: links }
+      } catch { return { ...r, lampiranLinks: [] } }
+    }))
+    const data = rowsWithLampiran.map(r => ({
       Nama_Customer: r.namaCustomer || "",
       No_Hp: r.noHp || "",
       Alamat: r.alamat || "",
-      Google_Maps: r.googleMaps || ""
-    }));
-    const ws = XLSX.utils.json_to_sheet(data);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Customer');
-    const fn = `Customer_Report.xlsx`;
-    XLSX.writeFile(wb, fn);
+      Google_Maps: r.googleMaps || "",
+      Lampiran: Array.isArray(r.lampiranLinks) && r.lampiranLinks.length ? r.lampiranLinks.join('\n') : ''
+    }))
+    const ws = XLSX.utils.json_to_sheet(data)
+    ws['!cols'] = [
+      { wch: 24 },
+      { wch: 14 },
+      { wch: 40 },
+      { wch: 30 },
+      { wch: 60 },
+    ]
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, 'Customer')
+    const fn = `Customer_Report.xlsx`
+    XLSX.writeFile(wb, fn)
   };
 
   return (

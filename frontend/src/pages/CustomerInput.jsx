@@ -1,8 +1,9 @@
-import { useRef, useState } from "react";
+import { useRef, useState, useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import settingsIcon from '../assets/settingIcon.svg';
 import { useAuth, useCustomers } from "../hooks/useAPI";
 import { fileAPI } from "../services/api";
+import usersIcon from '../assets/users.svg';
 
 const navigationItems = [
   {
@@ -84,7 +85,14 @@ const CustomerInput = () => {
   const fileInputRef = useRef(null);
   const navigate = useNavigate();
   const { createCustomer } = useCustomers();
-  const { logout } = useAuth();
+  const { user, logout } = useAuth();
+
+  const navItems = useMemo(() => {
+    const base = navigationItems.map(i => ({ ...i }));
+    return user?.role === 'admin'
+      ? [...base, { id: 'management', label: 'Users', icon: usersIcon, href: '/management', isActive: false }]
+      : base;
+  }, [user]);
 
   const handleInputChange = (id, value) => {
     setFormData(prev => ({ ...prev, [id]: value }));
@@ -215,7 +223,7 @@ const CustomerInput = () => {
               />
               
               <div className="flex flex-col gap-2 mb-8">
-                {navigationItems.map((item) => {
+                {navItems.map((item) => {
                   const ItemWrapper = item.href !== "#" ? Link : "button";
                   const wrapperProps = item.href !== "#" ? { to: item.href } : {};
 
@@ -277,7 +285,7 @@ const CustomerInput = () => {
           />
           
           <div className="flex flex-col gap-3">
-            {navigationItems.map((item) => {
+            {navItems.map((item) => {
               const ItemWrapper = item.href !== "#" ? Link : "button";
               const wrapperProps = item.href !== "#" ? { to: item.href } : {};
           

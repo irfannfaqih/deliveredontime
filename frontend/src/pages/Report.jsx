@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useMemo } from "react";
 import { Link } from "react-router-dom";
 import * as XLSX from "xlsx";
 import settingsIcon from '../assets/settingIcon.svg';
+import sefasLogoPng from '../assets/sefas-logo.png';
 import { useAuth, useBBM, useDeliveries } from "../hooks/useAPI";
 import { fileAPI } from "../services/api";
 import { normalizeUrl } from '../utils/url';
@@ -67,6 +68,13 @@ const toLocalYMD = (d) => {
   } catch { return String(d).slice(0,10); }
 };
 
+const formatRupiah = (n) => {
+  const v = Number(n || 0);
+  if (!isFinite(v)) return "";
+  const iv = Math.round(v);
+  return `Rp ${iv.toLocaleString('id-ID')}`;
+};
+
 const AttachmentsModal = ({ isOpen, onClose, attachments, onPreview }) => {
   if (!isOpen) return null;
   const apiUrl = (import.meta.env.VITE_API_URL || 'http://localhost:3000/api');
@@ -79,6 +87,19 @@ const AttachmentsModal = ({ isOpen, onClose, attachments, onPreview }) => {
             <svg className="w-5 h-5 text-[#404040]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
           </button>
         </div>
+        {Array.isArray(attachments) && attachments.length > 0 && (
+          <div className="flex justify-end mb-3">
+            <button
+              onClick={() => {
+                const links = (attachments || []).map(a => `${apiUrl}/files/raw/${a.id}`).join('\n');
+                navigator.clipboard.writeText(links);
+              }}
+              className="bg-[#197bbd] hover:bg-[#1569a3] text-white [font-family:'Quicksand',Helvetica] font-bold text-[10.2px] px-3.5 py-2 rounded-[10px] h-auto transition-colors duration-300"
+            >
+              Copy semua link
+            </button>
+          </div>
+        )}
         {Array.isArray(attachments) && attachments.length > 0 ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-3">
             {attachments.map(att => {
@@ -89,12 +110,21 @@ const AttachmentsModal = ({ isOpen, onClose, attachments, onPreview }) => {
               return (
                 <div key={att.id} className="relative group">
                   {isImage ? (
-                    <img className="w-full h-[140px] sm:h-[160px] lg:h-[180px] rounded-[12px] object-cover cursor-pointer transition-opacity hover:opacity-90" alt={att.original_filename} src={url} onClick={() => onPreview && onPreview(att)} />
+                    <>
+                      <img className="w-full h-[140px] sm:h-[160px] lg:h-[180px] rounded-[12px] object-cover cursor-pointer transition-opacity hover:opacity-90" alt={att.original_filename} src={url} onClick={() => onPreview && onPreview(att)} />
+                      <div className="absolute top-2 right-2 hidden group-hover:flex items-center gap-2">
+                        <a href={url} target="_blank" rel="noopener noreferrer" className="bg-white/90 hover:bg-white text-[#404040] text-[10px] px-2 py-1 rounded">Open</a>
+                        <button onClick={() => navigator.clipboard.writeText(url)} className="bg-white/90 hover:bg-white text-[#404040] text-[10px] px-2 py-1 rounded">Copy</button>
+                      </div>
+                    </>
                   ) : (
-                    <a href={url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 bg-[#fafafa] border border-[#e5e5e5] rounded-[12px] p-3 text-[#404040] text-xs">
-                      <svg className="w-4 h-4 text-[#9e9e9e]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h10M7 11h10M7 15h10M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
-                      <span className="truncate">{att.original_filename}</span>
-                    </a>
+                    <div className="flex items-center gap-2 bg-[#fafafa] border border-[#e5e5e5] rounded-[12px] p-3 text-[#404040] text-xs">
+                      <a href={url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 min-w-0 flex-1">
+                        <svg className="w-4 h-4 text-[#9e9e9e]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h10M7 11h10M7 15h10M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
+                        <span className="truncate">{att.original_filename}</span>
+                      </a>
+                      <button onClick={() => navigator.clipboard.writeText(url)} className="text-[#197bbd] hover:text-[#1569a3] text-[10px] font-bold">Copy</button>
+                    </div>
                   )}
                 </div>
               );
@@ -163,23 +193,268 @@ const ExportModal = ({ isOpen, onClose, deliveries, bbmRecords }) => {
     return rows;
   };
 
-  const handleExportPDF = () => {
+  const handleExportPDF = async () => {
     const rows = buildRows();
-    const doc = new jsPDF();
+    const rowsWithExtras = await Promise.all(rows.map(async (r) => {
+      const matched = (Array.isArray(bbmRecords) ? bbmRecords : []).filter(b => toLocalYMD(b.tanggal) === String(r.date) && (!selectedMessenger || String(b.messenger || '').toLowerCase() === String(selectedMessenger).toLowerCase()));
+      let sumRupiah = 0;
+      const apiUrl = (import.meta.env.VITE_API_URL || 'http://localhost:3000/api');
+      const linkList = [];
+      for (const b of matched) {
+        const amt = b.jumlah_bbm_rupiah != null ? Number(b.jumlah_bbm_rupiah) : 0;
+        if (isFinite(amt)) sumRupiah += amt;
+      }
+      let attCount = 0;
+      for (const b of matched) {
+        try {
+          const resp = await fileAPI.getAll({ bbm_record_id: b.id });
+          const data = resp?.data ?? resp;
+          const rows = Array.isArray(data?.data) ? data.data : (Array.isArray(data) ? data : []);
+          attCount += rows.length;
+          rows.forEach(x => linkList.push(`${apiUrl}/files/raw/${x.id}`));
+        } catch { void 0 }
+      }
+      return { ...r, jumlahBbm: sumRupiah, lampiran: attCount, lampiranLinks: linkList };
+    }));
+    const loadImage = async (src) => {
+      const finalSrc = normalizeUrl(src);
+      const isSvg = String(finalSrc).toLowerCase().endsWith('.svg');
+      if (isSvg) {
+        try {
+          const text = await (await fetch(finalSrc)).text();
+          const blob = new Blob([text], { type: 'image/svg+xml' });
+          const url = URL.createObjectURL(blob);
+          const result = await new Promise((resolve) => {
+            const img = new Image();
+            img.onload = () => {
+              const canvas = document.createElement('canvas');
+              canvas.width = img.width || 400;
+              canvas.height = img.height || 120;
+              const ctx = canvas.getContext('2d');
+              ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+              URL.revokeObjectURL(url);
+              resolve({ dataUrl: canvas.toDataURL('image/png'), width: canvas.width, height: canvas.height, format: 'PNG' });
+            };
+            img.src = url;
+          });
+          return result;
+        } catch { return null }
+      }
+      try {
+        const result = await new Promise((resolve) => {
+          const img = new Image();
+          img.crossOrigin = 'anonymous';
+          img.onload = () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = img.naturalWidth || img.width || 400;
+            canvas.height = img.naturalHeight || img.height || 120;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            const isPng = String(finalSrc).toLowerCase().endsWith('.png');
+            const dataUrl = isPng ? canvas.toDataURL('image/png') : canvas.toDataURL('image/jpeg', 0.72);
+            resolve({ dataUrl, width: canvas.width, height: canvas.height, format: isPng ? 'PNG' : 'JPEG' });
+          };
+          img.src = finalSrc;
+        });
+        return result;
+      } catch { return null }
+    };
+
+    const doc = new jsPDF({ unit: 'mm', format: 'a4', compress: true, putOnlyUsedFonts: true, floatPrecision: 2 });
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+
+    const companyName = (import.meta.env.VITE_COMPANY_NAME || 'PT. SEFAS PELINDOTAMA');
+    const companyAddr = (import.meta.env.VITE_COMPANY_ADDRESS || 'Landasan Ulin Sel., Kec. Liang Anggang, Kota Banjar Baru, Kalimantan Selatan 70722');
+    const companyPhone = (import.meta.env.VITE_COMPANY_PHONE || '05116747319');
+    const companyEmail = (import.meta.env.VITE_COMPANY_EMAIL || '');
+    const logoSrc = import.meta.env.VITE_COMPANY_LOGO || sefasLogoPng;
+
+    
+    const logo = await loadImage(logoSrc);
+    const marginLeft = 16;
+    const marginRight = 16;
+    let logoH = 0;
+    let logoW = 0;
+    const logoX = marginLeft;
+    const logoY = 16;
+    if (logo?.dataUrl && logo?.width && logo?.height) {
+      const maxW = 34;
+      const maxH = 20;
+      const scale = Math.min(maxW / logo.width, maxH / logo.height);
+      logoW = Math.max(1, Math.round(logo.width * scale));
+      logoH = Math.max(1, Math.round(logo.height * scale));
+      try { doc.addImage(logo.dataUrl, logo.format || 'PNG', logoX, logoY, logoW, logoH); } catch { void 0 }
+    }
+    doc.setTextColor(35, 35, 35);
+    const textX = logoX + logoW + 8;
+    const nameFS = 16;
+    doc.setFontSize(nameFS);
+    const nameY = logoY + (logoH ? Math.round(logoH * 0.55) : 20);
+    doc.text(String(companyName), textX + 6, nameY);
+    doc.setFontSize(9.5);
+    const contactLine = companyEmail ? `${companyAddr} | ${companyPhone} | ${companyEmail}` : `${companyAddr} | ${companyPhone}`;
+    const contactY = nameY + 5;
+    doc.text(contactLine, textX + 6, contactY, { maxWidth: pageWidth - (textX + 6) });
+    doc.setFontSize(13);
+    doc.setDrawColor(200);
+    doc.setLineWidth(0.6);
+    const sepX = logoX + logoW + 4;
+    const sepTop = logoY;
+    const sepBottom = Math.max(contactY, logoY + logoH);
+    doc.line(sepX, sepTop, sepX, sepBottom);
+
+    const titleY = contactY + 14;
+    doc.text('Laporan Pergantian BBM', marginLeft, titleY);
+    const rangeText = `Rentang: ${startDate || '-'} s.d ${endDate || '-'}`;
+    doc.setFontSize(10);
+    const rangeW = doc.getTextWidth(rangeText);
+    doc.text(rangeText, pageWidth - marginRight - rangeW, titleY);
+    if (selectedMessenger) {
+      const msgText = `Messenger: ${selectedMessenger}`;
+      const msgW = doc.getTextWidth(msgText);
+      doc.text(msgText, pageWidth - marginRight - msgW, titleY + 6);
+    }
+    doc.setDrawColor(250, 175, 119);
+    doc.setLineWidth(0.7);
+    
+
+    doc.setFillColor(248, 248, 248);
+    doc.setFillColor(248, 248, 248);
+    const contentX = marginLeft;
+    const tableStartY = titleY + 12;
+    const contentY = tableStartY;
+    const contentW = pageWidth - (marginLeft + marginRight);
+    const contentH = pageHeight - (tableStartY + 22);
+    doc.rect(contentX, contentY, contentW, contentH, 'F');
+
+    if (logo?.dataUrl) {
+      try {
+        if (doc.GState) {
+          const gs = new doc.GState({ opacity: 0.08 });
+          doc.setGState(gs);
+        }
+        const wmMaxW = pageWidth * 0.6;
+        const wmScale = logo.width && logo.height ? Math.min(wmMaxW / logo.width, (pageHeight * 0.6) / logo.height) : 1;
+        const wmW = logo.width ? Math.round(logo.width * wmScale) : 120;
+        const wmH = logo.height ? Math.round(logo.height * wmScale) : 60;
+        const wmX = (pageWidth - wmW) / 2;
+        const wmY = (pageHeight - wmH) / 2 + 6;
+        doc.addImage(logo.dataUrl, logo.format || 'PNG', wmX, wmY, wmW, wmH);
+        if (doc.GState) {
+          const gsReset = new doc.GState({ opacity: 1 });
+          doc.setGState(gsReset);
+        }
+      } catch { void 0 }
+    }
+
     autoTable(doc, {
-      head: [["Tanggal","Invoice","KM Awal","KM Akhir","Total KM"]],
-      body: rows.map(r => [formatDateText(r.date), String(r.invoice), String(r.kmAwal), String(r.kmAkhir), String(r.totalKm)])
+      head: [["Tanggal","Invoice","KM Awal","KM Akhir","Total KM","Jumlah BBM","Lampiran"]],
+      body: rowsWithExtras.map(r => [
+        formatDateText(r.date),
+        String(r.invoice),
+        String(r.kmAwal),
+        String(r.kmAkhir),
+        String(r.totalKm),
+        formatRupiah(r.jumlahBbm),
+        Array.isArray(r.lampiranLinks) && r.lampiranLinks.length ? r.lampiranLinks.join('\n') : ''
+      ]),
+      startY: tableStartY,
+      margin: { left: marginLeft, right: marginRight, bottom: 60 },
+      tableWidth: pageWidth - (marginLeft + marginRight),
+      styles: { fontSize: 9, halign: 'center', valign: 'middle', cellPadding: 2.2 },
+      headStyles: { fillColor: [250,175,119], textColor: 255, fontSize: 10, halign: 'center', valign: 'middle', cellPadding: 2.2 },
+      alternateRowStyles: { fillColor: [253, 244, 236] },
+      columnStyles: { 0: { halign: 'center' }, 1: { halign: 'center' }, 2: { halign: 'center' }, 3: { halign: 'center' }, 4: { halign: 'center' }, 5: { halign: 'center' }, 6: { halign: 'left' } },
+      didDrawPage: (data) => {
+        const pw = doc.internal.pageSize.getWidth();
+        const ph = doc.internal.pageSize.getHeight();
+        doc.setFontSize(9);
+        doc.setTextColor(120);
+        const printedAt = new Date();
+        const dd = String(printedAt.getDate()).padStart(2, '0');
+        const mm = String(printedAt.getMonth()+1).padStart(2, '0');
+        const yyyy = printedAt.getFullYear();
+        const hh = String(printedAt.getHours()).padStart(2, '0');
+        const ii = String(printedAt.getMinutes()).padStart(2, '0');
+        doc.text(`Dicetak: ${dd}/${mm}/${yyyy} ${hh}:${ii}`, 16, ph - 11);
+        const totalPages = doc.internal.getNumberOfPages();
+        doc.text(`Halaman ${data.pageNumber} dari ${totalPages}`, pw - 48, ph - 11);
+        doc.setDrawColor(250, 175, 119);
+        doc.setLineWidth(0.5);
+        doc.line(12, ph - 14, pw - 12, ph - 14);
+        doc.setTextColor(80);
+        doc.setFontSize(9);
+        const f3 = companyEmail ? `${companyEmail}` : '';
+        if (f3) doc.text(f3, pw - 14 - doc.getTextWidth(f3), ph - 6);
+
+        if (data.pageNumber === totalPages) {
+          doc.setTextColor(60);
+          doc.setFontSize(10);
+          const monthNames = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+          const dateLine = `${dd} ${monthNames[printedAt.getMonth()]} ${yyyy}`;
+          doc.text(dateLine, pw - marginRight, ph - 58, { align: 'right' });
+
+          doc.text('Hormat kami,', pw - marginRight, ph - 52, { align: 'right' });
+
+          doc.setTextColor(70);
+          doc.setFontSize(10);
+          const nameText = 'Kresna Aditya';
+          const nameY = ph - 32;
+          doc.text(nameText, pw - marginRight, nameY, { align: 'right' });
+          const nameWidth = doc.getTextWidth(nameText);
+          doc.setDrawColor(160);
+          doc.setLineWidth(0.4);
+          const underlineY = nameY + 1;
+          doc.line(pw - marginRight - nameWidth, underlineY, pw - marginRight, underlineY);
+
+          doc.setTextColor(70);
+          doc.setFontSize(10);
+          doc.text('HRGA Coordinator', pw - marginRight, ph - 26, { align: 'right' });
+        }
+      }
     });
-    doc.save("daily-summary.pdf");
+
+    const fileName = `report-summary_${startDate || 'all'}_${endDate || 'all'}_${selectedMessenger || 'all'}.pdf`;
+    doc.save(fileName);
   };
 
-  const handleExportExcel = () => {
+  const handleExportExcel = async () => {
     const rows = buildRows();
-    const data = [["Tanggal","Invoice","KM Awal","KM Akhir","Total KM"], ...rows.map(r => [formatDateText(r.date), r.invoice, r.kmAwal, r.kmAkhir, r.totalKm])];
-    const ws = XLSX.utils.aoa_to_sheet(data);
+    const rowsWithExtras = await Promise.all(rows.map(async (r) => {
+      const matched = (Array.isArray(bbmRecords) ? bbmRecords : []).filter(b => toLocalYMD(b.tanggal) === String(r.date) && (!selectedMessenger || String(b.messenger || '').toLowerCase() === String(selectedMessenger).toLowerCase()));
+      let sumRupiah = 0;
+      const apiUrl = (import.meta.env.VITE_API_URL || 'http://localhost:3000/api');
+      const linkList = [];
+      for (const b of matched) {
+        const amt = b.jumlah_bbm_rupiah != null ? Number(b.jumlah_bbm_rupiah) : 0;
+        if (isFinite(amt)) sumRupiah += amt;
+      }
+      for (const b of matched) {
+        try {
+          const resp = await fileAPI.getAll({ bbm_record_id: b.id });
+          const data = resp?.data ?? resp;
+          const rowsA = Array.isArray(data?.data) ? data.data : (Array.isArray(data) ? data : []);
+          rowsA.forEach(x => linkList.push(`${apiUrl}/files/raw/${x.id}`));
+        } catch { void 0 }
+      }
+      return { ...r, jumlahBbm: sumRupiah, lampiranLinks: linkList };
+    }));
+
+    const sheetData = rowsWithExtras.map(r => ({
+      Tanggal: formatDateText(r.date),
+      Invoice: r.invoice,
+      KM_Awal: r.kmAwal,
+      KM_Akhir: r.kmAkhir,
+      Total_KM: r.totalKm,
+      Jumlah_BBM: r.jumlahBbm,
+      Lampiran: Array.isArray(r.lampiranLinks) && r.lampiranLinks.length ? r.lampiranLinks.join('\n') : ''
+    }));
+    const ws = XLSX.utils.json_to_sheet(sheetData);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Summary");
-    XLSX.writeFile(wb, "daily-summary.xlsx");
+    const fn = `report-summary_${startDate || 'all'}_${endDate || 'all'}_${selectedMessenger || 'all'}.xlsx`;
+    XLSX.writeFile(wb, fn);
   };
 
   
@@ -351,18 +626,20 @@ export const Report = () => {
       const dateKey = r.sentDate || r.sent_date || r.tanggal;
       if (!dateKey) return;
       const key = toLocalYMD(dateKey);
-      if (!byDate[key]) byDate[key] = { rawDate: key, invoiceCount: 0, kmAwal: null, kmAkhir: null, totalKm: null };
+      if (!byDate[key]) byDate[key] = { rawDate: key, invoiceCount: 0, kmAwal: null, kmAkhir: null, totalKm: null, jumlahBbm: 0 };
       byDate[key].invoiceCount += 1;
     });
     (Array.isArray(bbmRecords) ? bbmRecords : []).forEach(b => {
       const dateKey = b.tanggal || b.sentDate || b.sent_date;
       if (!dateKey) return;
       const key = toLocalYMD(dateKey);
-      if (!byDate[key]) byDate[key] = { rawDate: key, invoiceCount: 0, kmAwal: null, kmAkhir: null, totalKm: null };
+      if (!byDate[key]) byDate[key] = { rawDate: key, invoiceCount: 0, kmAwal: null, kmAkhir: null, totalKm: null, jumlahBbm: 0 };
       const awal = b.kilometer_awal != null ? Number(b.kilometer_awal) : null;
       const akhir = b.kilometer_akhir != null ? Number(b.kilometer_akhir) : null;
       if (awal != null) byDate[key].kmAwal = byDate[key].kmAwal == null ? awal : Math.min(byDate[key].kmAwal, awal);
       if (akhir != null) byDate[key].kmAkhir = byDate[key].kmAkhir == null ? akhir : Math.max(byDate[key].kmAkhir, akhir);
+      const amt = b.jumlah_bbm_rupiah != null ? Number(b.jumlah_bbm_rupiah) : 0;
+      if (isFinite(amt)) byDate[key].jumlahBbm += amt;
     });
     const rows = Object.values(byDate).map(r => ({
       rawDate: r.rawDate,
@@ -371,6 +648,7 @@ export const Report = () => {
       kmAwal: r.kmAwal,
       kmAkhir: r.kmAkhir,
       totalKm: r.kmAwal != null && r.kmAkhir != null ? (r.kmAkhir - r.kmAwal) : null,
+      jumlahBbm: r.jumlahBbm,
     }));
     rows.sort((a,b) => new Date(a.rawDate) - new Date(b.rawDate));
     return rows.reverse();
@@ -397,7 +675,7 @@ export const Report = () => {
 
   const displayedData = filteredData.slice(0, entriesPerPage);
 
-  const handleView = async (rawDate) => {
+  const _handleView = async (rawDate) => {
     try {
       const list = [];
       const matched = (Array.isArray(bbmRecords) ? bbmRecords : []).filter(b => toLocalYMD(b.tanggal || b.sentDate || b.sent_date) === String(rawDate));
@@ -736,8 +1014,9 @@ export const Report = () => {
                         Total Kilometer
                       </th>
                       <th className="[font-family:'Suprema-Regular',Helvetica] font-normal text-[#aeaeae] text-[12.8px] tracking-[0] leading-[normal] text-left pb-2">
-                        Attachment
+                        Jumlah BBM
                       </th>
+                      
                     </tr>
                   </thead>
                   <tbody>
@@ -768,8 +1047,9 @@ export const Report = () => {
                             {row.totalKm}
                           </td>
                           <td className="[font-family:'Suprema-Regular',Helvetica] font-normal text-[#c7c7c7] text-[12.8px] tracking-[0] leading-[normal] py-3">
-                            <button onClick={() => handleView(row.rawDate)} className="text-[#c7c7c7] underline hover:text-[#197bbd] transition-colors duration-300">View</button>
+                            {formatRupiah(row.jumlahBbm)}
                           </td>
+                          
                         </tr>
                       ))
                     ) : (
@@ -804,15 +1084,7 @@ export const Report = () => {
                                 {row.invoiceCount} Invoice
                               </p>
                             </div>
-                            <button 
-                              onClick={(e) => {
-                                e.preventDefault();
-                                handleView(row.rawDate);
-                              }}
-                              className="[font-family:'Lato',Helvetica] font-bold text-[10px] px-2.5 py-1 rounded-md bg-[#e8f5e9] text-[#2e7d32] whitespace-nowrap flex-shrink-0"
-                            >
-                              View
-                            </button>
+                            
                           </div>
                           
                           <div className="space-y-2 pt-2 border-t border-[#e5e5e5]">
@@ -829,6 +1101,10 @@ export const Report = () => {
                             <div className="flex items-start gap-2">
                               <span className="[font-family:'Suprema-Regular',Helvetica] font-medium text-[#696969] text-[11px] min-w-[85px]">Total KM:</span>
                               <span className="[font-family:'Suprema-Regular',Helvetica] font-normal text-[#404040] text-[11px] flex-1">{row.totalKm}</span>
+                            </div>
+                            <div className="flex items-start gap-2">
+                              <span className="[font-family:'Suprema-Regular',Helvetica] font-medium text-[#696969] text-[11px] min-w-[85px]">Jumlah BBM:</span>
+                              <span className="[font-family:'Suprema-Regular',Helvetica] font-normal text-[#404040] text-[11px] flex-1">{formatRupiah(row.jumlahBbm)}</span>
                             </div>
                           </div>
                         </div>

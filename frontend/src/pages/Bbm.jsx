@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import settingsIcon from '../assets/settingIcon.svg';
 import { useAuth, useBBM } from "../hooks/useAPI";
 import { normalizeUrl } from '../utils/url';
-import { fileAPI } from "../services/api";
+import { fileAPI, authAPI } from "../services/api";
 
 const navigationItems = [
   {
@@ -87,8 +87,8 @@ const DetailBBMModal = ({ isOpen, onClose, data, attachments, onPreview, onEdit,
   const rightFields = detailFields.filter((field) => field.column === "right");
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40 p-3 sm:p-4" role="dialog" aria-modal="true">
-      <div className="bg-white rounded-[17.38px] shadow-[0px_0px_0.91px_#0000000a,0px_1.83px_5.49px_#0000000a,0px_14.63px_21.95px_#0000000f] w-full max-w-[95vw] sm:max-w-[720px] lg:max-w-[860px] p-4 sm:p-6 transform transition-all duration-300 scale-100 max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-70 p-3 sm:p-4" role="dialog" aria-modal="true">
+      <div className="bg-white rounded-[17.38px] shadow-[0px_0px_0.91px_#0000000a,0px_1.83px_5.49px_#0000000a,0px_14.63px_21.95px_#0000000f] w-full max-w-[95vw] sm:max-w-[800px] p-4 sm:p-6 transform transition-all duration-300 scale-100 max-h-[90vh] overflow-y-auto">
         <header className="mb-4 sm:mb-6">
           <div className="flex items-start justify-between mb-2">
             <h1 className="font-['Inter',Helvetica] font-bold text-[#0b0b0b] text-sm sm:text-base tracking-[-0.20px] leading-[24px] text-left">
@@ -96,37 +96,18 @@ const DetailBBMModal = ({ isOpen, onClose, data, attachments, onPreview, onEdit,
             </h1>
 
             <div className="flex items-center gap-2">
-              <button onClick={onEdit} className="h-auto rounded-[12px] border border-[#cdcdcd] px-2 py-2 flex items-center gap-0.5 hover:bg-gray-50 transition-colors">
-                <span className="hidden sm:inline font-['Inter',Helvetica] font-medium text-[#63676a] text-xs tracking-[0] leading-4 text-left">
-                  Edit
-                </span>
-                <img
-                  className="w-5 h-5"
-                  alt="Edit"
-                  src="https://c.animaapp.com/mh45d3fhl0zAog/img/frame-72.svg"
-                />
+              <button onClick={onEdit} className="h-auto rounded-[12px] border border-[#e0e0e0] px-2 sm:px-3 py-2 inline-flex items-center gap-1.5 hover:bg-gray-50 transition-colors">
+                <span className="hidden sm:inline [font-family:'Inter',Helvetica] font-medium text-[#404040] text-[13px] tracking-[0] leading-[18px]">Edit</span>
+                <svg className="w-[15px] h-[15px] text-[#404040]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 20h9M16.5 3.5l4 4L7 21H3v-4L16.5 3.5z" /></svg>
               </button>
 
-              <button onClick={onDelete} className="h-auto rounded-[12px] border border-[#cdcdcd] px-2 py-2 flex items-center gap-1.5 hover:bg-gray-50 transition-colors">
-                <span className="hidden sm:inline font-['Inter',Helvetica] font-medium text-[#63676a] text-xs tracking-[0] leading-4 text-left">
-                  Hapus
-                </span>
-                <img
-                  className="w-5 h-5"
-                  alt="Delete outline"
-                  src="https://c.animaapp.com/mh45d3fhl0zAog/img/delete-outline.svg"
-                />
+              <button onClick={onDelete} className="h-auto rounded-[12px] border border-[#e0e0e0] px-2 sm:px-3 py-2 inline-flex items-center gap-1.5 hover:bg-gray-50 transition-colors">
+                <span className="hidden sm:inline [font-family:'Inter',Helvetica] font-medium text-[#404040] text-[13px] tracking-[0] leading-[18px]">Hapus</span>
+                <svg className="w-[15px] h-[15px] text-[#404040]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5-4h4" /></svg>
               </button>
 
-              <button 
-                onClick={onClose}
-                className="h-5 w-5 p-0 flex items-center justify-center hover:bg-gray-100 rounded transition-colors"
-              >
-                <img
-                  className="w-5 h-5"
-                  alt="Close"
-                  src="https://c.animaapp.com/mh45d3fhl0zAog/img/close.svg"
-                />
+              <button onClick={onClose} className="h-7 w-7 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors">
+                <svg className="w-4 h-4 text-[#404040]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
               </button>
             </div>
           </div>
@@ -235,7 +216,7 @@ const AttachmentPreviewModal = ({ isOpen, att, onClose }) => {
   );
 };
 
-const EditBBMModal = ({ isOpen, onClose, data, onSave }) => {
+const EditBBMModal = ({ isOpen, onClose, data, onSave, attachments, bbmId, onUpload, onRemoveAttachment, onPreview }) => {
   const base = data || {};
   const [form, setForm] = useState({
     tanggal: base.tanggalRaw || '',
@@ -245,6 +226,38 @@ const EditBBMModal = ({ isOpen, onClose, data, onSave }) => {
     messenger: base.messenger || ''
   });
   const [errors, setErrors] = useState({});
+  const [imageFail, setImageFail] = useState({});
+  const [messengers, setMessengers] = useState([]);
+  useEffect(() => {
+    if (isOpen && data) {
+      setForm({
+        tanggal: data.tanggalRaw || '',
+        kilometer_awal: Number(data.kilometerAwal || 0) || 0,
+        kilometer_akhir: Number(data.kilometerAkhir || 0) || 0,
+        jumlah_bbm_rupiah: Number(data.jumlahBbmRupiah || 0) || 0,
+        messenger: data.messenger || ''
+      });
+      setErrors({});
+    }
+  }, [isOpen, data]);
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const r = await authAPI.listUsers();
+        const list = r?.data ?? r;
+        const ms = Array.isArray(list)
+          ? list
+              .filter(u => String(u.role) === 'messenger' && (u.is_active === 1 || u.is_active === true))
+              .map(u => ({ id: u.id, name: u.name }))
+          : [];
+        if (mounted) setMessengers(ms);
+      } catch {
+        if (mounted) setMessengers([]);
+      }
+    })();
+    return () => { mounted = false };
+  }, []);
   if (!isOpen || !data) return null;
   const onChange = (k, v) => {
     setForm(prev => ({ ...prev, [k]: v }));
@@ -298,45 +311,106 @@ const EditBBMModal = ({ isOpen, onClose, data, onSave }) => {
       return `${yyyy}-${mm}-${dd}`;
     } catch { return String(d); }
   };
+  const handleSelectFiles = async (e) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length && bbmId && onUpload) await onUpload(files);
+    e.target.value = '';
+  };
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black bg-opacity-70 p-3 sm:p-4" role="dialog" aria-modal="true">
-      <div className="bg-white rounded-[17.38px] shadow-[0px_0px_0.91px_#0000000a,0px_1.83px_5.49px_#0000000a,0px_14.63px_21.95px_#0000000f] w-full max-w-[95vw] sm:max-w-[720px] lg:max-w-[860px] p-4 sm:p-6">
-        <div className="flex items-start justify-between mb-3">
-          <h2 className="[font-family:'Suprema-SemiBold',Helvetica] font-semibold text-black text-[16px]">Edit BBM</h2>
-          <button onClick={onClose} className="h-5 w-5 p-0 flex items-center justify-center hover:bg-gray-100 rounded transition-colors">
-            <img className="w-5 h-5" alt="Close" src="https://c.animaapp.com/mh45d3fhl0zAog/img/close.svg" />
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40 p-3 sm:p-4" role="dialog" aria-modal="true">
+      <div className="bg-white rounded-[17.38px] shadow-[0px_0px_0.91px_#0000000a,0px_1.83px_5.49px_#0000000a,0px_14.63px_21.95px_#0000000f] w-full max-w-[95vw] sm:max-w-[800px] p-4 sm:p-6 transform transition-all max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between mb-3 sm:mb-4">
+          <h2 className="[font-family:'Suprema-SemiBold',Helvetica] font-semibold text-black text-[16px] sm:text-[18px]">Edit BBM</h2>
+          <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors">
+            <svg className="w-4 h-4 text-[#404040]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
           </button>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <label className="flex flex-col gap-1">
-            <span className="text-xs text-[#63676a]">Tanggal</span>
-            <input type="date" className={`border rounded-[10px] p-2 text-xs ${errors.tanggal ? 'border-red-500' : 'border-[#cccccccc]'}`} value={formatDateInput(form.tanggal)} onChange={e => onChange('tanggal', e.target.value)} />
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="flex flex-col gap-2">
+            <label className="[font-family:'Inter',Helvetica] font-medium text-black text-xs">Tanggal</label>
+            <input type="date" value={formatDateInput(form.tanggal)} onChange={e => onChange('tanggal', e.target.value)} className={`w-full bg-white rounded-[10.26px] border-[0.85px] ${errors.tanggal ? 'border-red-500' : 'border-[#cccccccc]'} px-3 py-[17.1px] [font-family:'Inter',Helvetica] text-[10.3px] outline-none focus:border-[#197bbd] transition-colors`} />
             {errors.tanggal && <span className="text-red-600 text-[10px] mt-0.5">{errors.tanggal}</span>}
-          </label>
-          <label className="flex flex-col gap-1">
-            <span className="text-xs text-[#63676a]">Messenger</span>
-            <input className={`border rounded-[10px] p-2 text-xs ${errors.messenger ? 'border-red-500' : 'border-[#cccccccc]'}`} value={form.messenger} onChange={e => onChange('messenger', e.target.value)} />
+          </div>
+          <div className="flex flex-col gap-2">
+            <label className="[font-family:'Inter',Helvetica] font-medium text-black text-xs">Messenger</label>
+            <div className="relative w-full">
+              <select
+                value={form.messenger || ''}
+                onChange={e => onChange('messenger', e.target.value)}
+                className={`w-full bg-white rounded-[10.26px] border-[0.85px] ${errors.messenger ? 'border-red-500' : 'border-[#cccccccc]'} px-3 py-[17.1px] pr-10 [font-family:'Inter',Helvetica] text-[10.3px] outline-none focus:border-[#197bbd] appearance-none transition-colors`}
+              >
+                <option value="">- Pilih Messenger -</option>
+                {messengers.map(m => (
+                  <option key={m.id} value={m.name}>{m.name}</option>
+                ))}
+              </select>
+              <svg className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#9e9e9e] pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+            </div>
             {errors.messenger && <span className="text-red-600 text-[10px] mt-0.5">{errors.messenger}</span>}
-          </label>
-          <label className="flex flex-col gap-1">
-            <span className="text-xs text-[#63676a]">Kilometer Awal</span>
-            <input type="number" min="0" className={`border rounded-[10px] p-2 text-xs ${errors.kilometer_awal ? 'border-red-500' : 'border-[#cccccccc]'}`} value={form.kilometer_awal} onChange={e => onChange('kilometer_awal', e.target.value)} />
+          </div>
+          <div className="flex flex-col gap-2">
+            <label className="[font-family:'Inter',Helvetica] font-medium text-black text-xs">Kilometer Awal</label>
+            <input type="number" min="0" value={form.kilometer_awal} onChange={e => onChange('kilometer_awal', e.target.value)} className={`w-full bg-white rounded-[10.26px] border-[0.85px] ${errors.kilometer_awal ? 'border-red-500' : 'border-[#cccccccc]'} px-3 py-[17.1px] [font-family:'Inter',Helvetica] text-[10.3px] outline-none focus:border-[#197bbd] transition-colors`} />
             {errors.kilometer_awal && <span className="text-red-600 text-[10px] mt-0.5">{errors.kilometer_awal}</span>}
-          </label>
-          <label className="flex flex-col gap-1">
-            <span className="text-xs text-[#63676a]">Kilometer Akhir</span>
-            <input type="number" min="0" className={`border rounded-[10px] p-2 text-xs ${errors.kilometer_akhir ? 'border-red-500' : 'border-[#cccccccc]'}`} value={form.kilometer_akhir} onChange={e => onChange('kilometer_akhir', e.target.value)} />
+          </div>
+          <div className="flex flex-col gap-2">
+            <label className="[font-family:'Inter',Helvetica] font-medium text-black text-xs">Kilometer Akhir</label>
+            <input type="number" min="0" value={form.kilometer_akhir} onChange={e => onChange('kilometer_akhir', e.target.value)} className={`w-full bg-white rounded-[10.26px] border-[0.85px] ${errors.kilometer_akhir ? 'border-red-500' : 'border-[#cccccccc]'} px-3 py-[17.1px] [font-family:'Inter',Helvetica] text-[10.3px] outline-none focus:border-[#197bbd] transition-colors`} />
             {errors.kilometer_akhir && <span className="text-red-600 text-[10px] mt-0.5">{errors.kilometer_akhir}</span>}
-          </label>
-          <label className="flex flex-col gap-1">
-            <span className="text-xs text-[#63676a]">Jumlah BBM (Rp)</span>
-            <input type="number" min="0" className={`border rounded-[10px] p-2 text-xs ${errors.jumlah_bbm_rupiah ? 'border-red-500' : 'border-[#cccccccc]'}`} value={form.jumlah_bbm_rupiah} onChange={e => onChange('jumlah_bbm_rupiah', e.target.value)} />
+          </div>
+          <div className="flex flex-col gap-2 sm:col-span-2">
+            <label className="[font-family:'Inter',Helvetica] font-medium text-black text-xs">Jumlah BBM (Rp)</label>
+            <input type="number" min="0" value={form.jumlah_bbm_rupiah} onChange={e => onChange('jumlah_bbm_rupiah', e.target.value)} className={`w-full bg-white rounded-[10.26px] border-[0.85px] ${errors.jumlah_bbm_rupiah ? 'border-red-500' : 'border-[#cccccccc]'} px-3 py-[17.1px] [font-family:'Inter',Helvetica] text-[10.3px] outline-none focus:border-[#197bbd] transition-colors`} />
             {errors.jumlah_bbm_rupiah && <span className="text-red-600 text-[10px] mt-0.5">{errors.jumlah_bbm_rupiah}</span>}
-          </label>
+          </div>
         </div>
-        <div className="mt-4 flex items-center gap-2">
-          <button onClick={save} className="px-4 py-2 bg-[#197bbd] hover:bg-[#1569a3] text-white rounded-[10px] [font-family:'Quicksand',Helvetica] font-bold text-[12px]">Simpan</button>
-          <button onClick={onClose} className="px-4 py-2 bg-white border border-[#cdcdcd] text-[#404040] rounded-[10px] [font-family:'Quicksand',Helvetica] font-bold text-[12px]">Batal</button>
+        {Array.isArray(attachments) && (
+          <div className="mt-4">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="[font-family:'Suprema-SemiBold',Helvetica] font-semibold text-black text-[14px]">Lampiran</h3>
+              <label className="inline-flex items-center gap-2 px-3 py-2 bg-[#197bbd] hover:bg-[#1569a3] text-white rounded-[10px] [font-family:'Quicksand',Helvetica] font-bold text-[12px] cursor-pointer">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                <span>Tambah Lampiran</span>
+                <input type="file" multiple onChange={handleSelectFiles} className="hidden" />
+              </label>
+            </div>
+            {attachments.length > 0 ? (
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-3">
+                {[...attachments].sort((a,b) => {
+                  if (a.created_at && b.created_at) return new Date(b.created_at) - new Date(a.created_at);
+                  return (b.id || 0) - (a.id || 0);
+                }).map(att => {
+                  const mime = String(att.mime_type || '').toLowerCase();
+                  const nameRef = String(att.stored_filename || att.original_filename || '').toLowerCase();
+                  const isImage = mime.startsWith('image/') || /(jpg|jpeg|png|gif|webp|bmp)$/i.test(nameRef);
+                  const apiUrl = (import.meta.env.VITE_API_URL || 'http://localhost:3000/api');
+                  const ver = att.updated_at || att.created_at || '';
+                  const url = `${apiUrl}/files/raw/${att.id}${ver ? `?v=${encodeURIComponent(ver)}` : ''}`;
+                  return (
+                    <div key={att.id} className="relative group">
+                      {isImage && !imageFail[att.id] ? (
+                        <img className="w-full h-[140px] sm:h-[160px] lg:h-[180px] rounded-[12px] object-cover cursor-pointer" alt={att.original_filename} src={url} onError={() => setImageFail(prev => ({ ...prev, [att.id]: true }))} onClick={() => onPreview && onPreview(att)} />
+                      ) : (
+                        <a href={url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 bg-[#fafafa] border border-[#e5e5e5] rounded-[12px] p-3 text-[#404040] text-xs">
+                          <svg className="w-4 h-4 text-[#9e9e9e]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h10M7 11h10M7 15h10M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
+                          <span className="truncate">{att.original_filename}</span>
+                        </a>
+                      )}
+                      <button onClick={() => onRemoveAttachment && onRemoveAttachment(att.id)} className="absolute top-2 right-2 bg-white bg-opacity-80 hover:bg-opacity-100 border border-[#e5e5e5] rounded-full p-1">
+                        <svg className="w-4 h-4 text-[#e53935]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5-4h4" /></svg>
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="text-[#9e9e9e] [font-family:'Inter',Helvetica] text-[12px]">Belum ada lampiran</div>
+            )}
+          </div>
+        )}
+        <div className="border-t border-[#e5e5e5] pt-4 mt-4 flex flex-col sm:flex-row items-center justify-end gap-3">
+          <button onClick={save} className="bg-[#197bbd] hover:bg-[#1569a3] text-white [font-family:'Quicksand',Helvetica] font-bold text-[12px] px-6 py-3 rounded-[12.45px] h-auto transition-all">Simpan</button>
+          <button onClick={onClose} className="px-6 py-3 border border-[#cccccccc] rounded-[12.45px] [font-family:'Quicksand',Helvetica] font-bold text-[#404040] text-[12px] hover:bg-gray-50 transition-colors">Batal</button>
         </div>
       </div>
     </div>
@@ -945,6 +1019,27 @@ export const BBM = () => {
         isOpen={isEditModalOpen}
         onClose={() => setIsEditModalOpen(false)}
         data={selectedDetail}
+        attachments={bbmAttachments}
+        bbmId={selectedDetail?.id}
+        onUpload={async (files) => {
+          const added = [];
+          for (const f of files) {
+            try {
+              const resp = await fileAPI.upload(f, 'bbm_proof', { bbm_record_id: selectedDetail?.id });
+              const d = resp?.data ?? resp;
+              const row = d?.data ?? d;
+              if (row) added.push(row);
+            } catch { void 0 }
+          }
+          if (added.length) setBbmAttachments(prev => [...prev, ...added]);
+        }}
+        onRemoveAttachment={async (attId) => {
+          try {
+            await fileAPI.delete(attId);
+            setBbmAttachments(prev => prev.filter(a => a.id !== attId));
+          } catch { void 0 }
+        }}
+        onPreview={handlePreview}
         onSave={async (payload) => {
           try {
             const r = await updateBBMRecord(selectedDetail.id, payload);

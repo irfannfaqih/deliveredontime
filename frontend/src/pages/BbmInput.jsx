@@ -1,8 +1,9 @@
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect, useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import settingsIcon from '../assets/settingIcon.svg';
 import { useAuth, useBBM } from "../hooks/useAPI";
-import { fileAPI } from "../services/api";
+import { fileAPI, authAPI } from "../services/api";
+import usersIcon from '../assets/users.svg';
 
 const navigationItems = [
   {
@@ -80,10 +81,37 @@ const BbmInput = () => {
   const [uploadedFiles, setUploadedFiles] = useState([]);
   const [isDragging, setIsDragging] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [messengers, setMessengers] = useState([]);
   const fileInputRef = useRef(null);
   const navigate = useNavigate();
   const { createBBMRecord } = useBBM();
-  const { logout } = useAuth();
+  const { user, logout } = useAuth();
+
+  const navItems = useMemo(() => {
+    const base = navigationItems.map(i => ({ ...i }));
+    return user?.role === 'admin'
+      ? [...base, { id: 'management', label: 'Users', icon: usersIcon, href: '/management', isActive: false }]
+      : base;
+  }, [user]);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const r = await authAPI.listUsers();
+        const list = r?.data ?? r;
+        const ms = Array.isArray(list)
+          ? list
+              .filter(u => String(u.role) === 'messenger' && (u.is_active === 1 || u.is_active === true))
+              .map(u => ({ id: u.id, name: u.name }))
+          : [];
+        if (mounted) setMessengers(ms);
+      } catch {
+        if (mounted) setMessengers([]);
+      }
+    })();
+    return () => { mounted = false };
+  }, []);
 
   const handleInputChange = (id, value) => {
     setFormData(prev => ({ ...prev, [id]: value }));
@@ -216,7 +244,7 @@ const BbmInput = () => {
               />
               
               <div className="flex flex-col gap-2 mb-8">
-                {navigationItems.map((item) => {
+                {navItems.map((item) => {
                   const ItemWrapper = item.href !== "#" ? Link : "button";
                   const wrapperProps = item.href !== "#" ? { to: item.href } : {};
 
@@ -278,7 +306,7 @@ const BbmInput = () => {
           />
           
           <div className="flex flex-col gap-3">
-            {navigationItems.map((item) => {
+            {navItems.map((item) => {
               const ItemWrapper = item.href !== "#" ? Link : "button";
               const wrapperProps = item.href !== "#" ? { to: item.href } : {};
           
@@ -384,10 +412,9 @@ const BbmInput = () => {
                         className={`w-full bg-white rounded-[10.26px] border-[0.85px] ${errors[field.id] ? 'border-red-500' : 'border-[#cccccccc]'} px-3 sm:px-4 py-3 sm:py-[17.1px] pr-10 [font-family:'Inter',Helvetica] font-medium text-black text-xs sm:text-[10.3px] outline-none focus:border-[#197bbd] appearance-none transition-colors`}
                       >
                         <option value="">{field.placeholder}</option>
-                        <option value="Rizky Renaldy">Rizky Renaldy</option>
-                        <option value="Ahmad Fauzi">Ahmad Fauzi</option>
-                        <option value="Budi Santoso">Budi Santoso</option>
-                        <option value="Siti Nurhaliza">Siti Nurhaliza</option>
+                        {messengers.map(m => (
+                          <option key={m.id} value={m.name}>{m.name}</option>
+                        ))}
                       </select>
                       <svg className="absolute right-3 sm:right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#9e9e9e] pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />

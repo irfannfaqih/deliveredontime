@@ -116,37 +116,18 @@ const DetailModal = ({ isOpen, onClose, data }) => {
             </h1>
 
             <div className="flex items-center gap-2">
-              <button className="h-auto rounded-[12px] border border-[#cdcdcd] px-2 py-2 flex items-center gap-0.5 hover:bg-gray-50 transition-colors">
-                <span className="hidden sm:inline font-['Inter',Helvetica] font-medium text-[#63676a] text-xs tracking-[0] leading-4 text-left">
-                  Edit
-                </span>
-                <img
-                  className="w-5 h-5"
-                  alt="Edit"
-                  src="https://c.animaapp.com/mh45d3fhl0zAog/img/frame-72.svg"
-                />
+              <button className="h-auto rounded-[12px] border border-[#e0e0e0] px-2 sm:px-3 py-2 inline-flex items-center gap-1.5 hover:bg-gray-50 transition-colors">
+                <span className="hidden sm:inline [font-family:'Inter',Helvetica] font-medium text-[#404040] text-[13px] tracking-[0] leading-[18px]">Edit</span>
+                <svg className="w-[15px] h-[15px] text-[#404040]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 20h9M16.5 3.5l4 4L7 21H3v-4L16.5 3.5z" /></svg>
               </button>
 
-              <button className="h-auto rounded-[12px] border border-[#cdcdcd] px-2 py-2 flex items-center gap-1.5 hover:bg-gray-50 transition-colors">
-                <span className="hidden sm:inline font-['Inter',Helvetica] font-medium text-[#63676a] text-xs tracking-[0] leading-4 text-left">
-                  Hapus
-                </span>
-                <img
-                  className="w-5 h-5"
-                  alt="Delete outline"
-                  src="https://c.animaapp.com/mh45d3fhl0zAog/img/delete-outline.svg"
-                />
+              <button className="h-auto rounded-[12px] border border-[#e0e0e0] px-2 sm:px-3 py-2 inline-flex items-center gap-1.5 hover:bg-gray-50 transition-colors">
+                <span className="hidden sm:inline [font-family:'Inter',Helvetica] font-medium text-[#404040] text-[13px] tracking-[0] leading-[18px]">Hapus</span>
+                <svg className="w-[15px] h-[15px] text-[#404040]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5-4h4" /></svg>
               </button>
 
-              <button 
-                onClick={onClose}
-                className="h-5 w-5 p-0 flex items-center justify-center hover:bg-gray-100 rounded transition-colors"
-              >
-                <img
-                  className="w-5 h-5"
-                  alt="Close"
-                  src="https://c.animaapp.com/mh45d3fhl0zAog/img/close.svg"
-                />
+              <button onClick={onClose} className="h-7 w-7 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors">
+                <svg className="w-4 h-4 text-[#404040]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
               </button>
             </div>
           </div>

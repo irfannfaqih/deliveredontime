@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useMemo } from "react";
 import { Link } from "react-router-dom";
 import * as XLSX from 'xlsx';
 import settingsIcon from '../assets/settingIcon.svg';
+import sefasLogoPng from '../assets/sefas-logo.png';
 import { useAuth, useDeliveries } from "../hooks/useAPI";
 import { deliveredAPI, fileAPI } from "../services/api";
 import { normalizeUrl } from '../utils/url';
@@ -115,37 +116,18 @@ const DetailModal = ({ isOpen, onClose, data, attachments, onDelete, onEdit, onP
             </h1>
 
             <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
-              <button onClick={onEdit} className="h-auto rounded-[12px] border border-[#cdcdcd] px-2 py-2 flex items-center gap-0.5 hover:bg-gray-50 transition-colors">
-                <span className="hidden sm:inline font-['Inter',Helvetica] font-medium text-[#63676a] text-xs tracking-[0] leading-4 text-left">
-                  Edit
-                </span>
-                <img
-                  className="w-5 h-5"
-                  alt="Edit"
-                  src="https://c.animaapp.com/mh45d3fhl0zAog/img/frame-72.svg"
-                />
+              <button onClick={onEdit} className="h-auto rounded-[12px] border border-[#e0e0e0] px-2 sm:px-3 py-2 inline-flex items-center gap-1.5 hover:bg-gray-50 transition-colors">
+                <span className="hidden sm:inline [font-family:'Inter',Helvetica] font-medium text-[#404040] text-[13px] tracking-[0] leading-[18px]">Edit</span>
+                <svg className="w-[15px] h-[15px] text-[#404040]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 20h9M16.5 3.5l4 4L7 21H3v-4L16.5 3.5z" /></svg>
               </button>
 
-              <button onClick={onDelete} className="h-auto rounded-[12px] border border-[#cdcdcd] px-2 py-2 flex items-center gap-1.5 hover:bg-gray-50 transition-colors">
-                <span className="hidden sm:inline font-['Inter',Helvetica] font-medium text-[#63676a] text-xs tracking-[0] leading-4 text-left">
-                  Hapus
-                </span>
-                <img
-                  className="w-5 h-5"
-                  alt="Delete outline"
-                  src="https://c.animaapp.com/mh45d3fhl0zAog/img/delete-outline.svg"
-                />
+              <button onClick={onDelete} className="h-auto rounded-[12px] border border-[#e0e0e0] px-2 sm:px-3 py-2 inline-flex items-center gap-1.5 hover:bg-gray-50 transition-colors">
+                <span className="hidden sm:inline [font-family:'Inter',Helvetica] font-medium text-[#404040] text-[13px] tracking-[0] leading-[18px]">Hapus</span>
+                <svg className="w-[15px] h-[15px] text-[#404040]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5-4h4" /></svg>
               </button>
 
-              <button 
-                onClick={onClose}
-                className="h-5 w-5 p-0 flex items-center justify-center hover:bg-gray-100 rounded transition-colors"
-              >
-                <img
-                  className="w-5 h-5"
-                  alt="Close"
-                  src="https://c.animaapp.com/mh45d3fhl0zAog/img/close.svg"
-                />
+              <button onClick={onClose} className="h-7 w-7 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors">
+                <svg className="w-4 h-4 text-[#404040]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
               </button>
             </div>
           </div>
@@ -165,7 +147,7 @@ const DetailModal = ({ isOpen, onClose, data, attachments, onDelete, onEdit, onP
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-3">
               {attachments.map(att => {
                 const mime = String(att.mime_type || '').toLowerCase();
-                const nameRef = String(att.stored_filename || att.original_filename || '').toLowerCase();
+                const nameRef = String(att.original_filename || att.stored_filename || '').toLowerCase();
                 const isImage = mime.startsWith('image/') || /\.(jpg|jpeg|png|gif|webp|bmp)$/i.test(nameRef);
                 const apiUrl = (import.meta.env.VITE_API_URL || 'http://localhost:3000/api');
                 const url = `${apiUrl}/files/raw/${att.id}`;
@@ -227,18 +209,28 @@ const DetailModal = ({ isOpen, onClose, data, attachments, onDelete, onEdit, onP
 };
 
 const EditModal = ({ isOpen, onClose, data, messengerOptions, onSave, attachments, deliveryId, onUpload, onRemoveAttachment, onPreview }) => {
+  const formatDateInput = (d) => {
+    if (!d) return ''
+    try {
+      const dt = new Date(d)
+      const yyyy = dt.getFullYear()
+      const mm = String(dt.getMonth() + 1).padStart(2, '0')
+      const dd = String(dt.getDate()).padStart(2, '0')
+      return `${yyyy}-${mm}-${dd}`
+    } catch { return String(d).slice(0,10) }
+  }
   const [form, setForm] = useState(() => ({
     invoice: data?.invoice || '',
     customer: data?.customer || '',
     item: data?.item || '',
-    sentDate: (data?.sentDateRaw || '').slice(0,10),
-    deliveredDate: (data?.deliveredDateRaw || '').slice(0,10),
+    sentDate: formatDateInput(data?.sentDateRaw || ''),
+    deliveredDate: formatDateInput(data?.deliveredDateRaw || ''),
     messenger: data?.messenger || '',
     recipient: data?.recipient || '',
     notes: data?.notes || '',
     status: data?.status || (() => {
-      const s = (data?.sentDateRaw || '').slice(0,10)
-      const r = (data?.deliveredDateRaw || '').slice(0,10)
+      const s = formatDateInput(data?.sentDateRaw || '')
+      const r = formatDateInput(data?.deliveredDateRaw || '')
       if (!s || !r) return 'Pending'
       try {
         const days = Math.floor((new Date(s).getTime() - new Date(r).getTime()) / (1000*60*60*24))
@@ -253,14 +245,14 @@ const EditModal = ({ isOpen, onClose, data, messengerOptions, onSave, attachment
         invoice: data?.invoice || '',
         customer: data?.customer || '',
         item: data?.item || '',
-        sentDate: (data?.sentDateRaw || '').slice(0,10),
-        deliveredDate: (data?.deliveredDateRaw || '').slice(0,10),
+        sentDate: formatDateInput(data?.sentDateRaw || ''),
+        deliveredDate: formatDateInput(data?.deliveredDateRaw || ''),
         messenger: data?.messenger || '',
         recipient: data?.recipient || '',
         notes: data?.notes || '',
         status: data?.status || (() => {
-          const s = (data?.sentDateRaw || '').slice(0,10)
-          const r = (data?.deliveredDateRaw || '').slice(0,10)
+          const s = formatDateInput(data?.sentDateRaw || '')
+          const r = formatDateInput(data?.deliveredDateRaw || '')
           if (!s || !r) return 'Pending'
           try {
             const days = Math.floor((new Date(s).getTime() - new Date(r).getTime()) / (1000*60*60*24))
@@ -362,7 +354,7 @@ const EditModal = ({ isOpen, onClose, data, messengerOptions, onSave, attachment
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-3">
                 {attachments.map(att => {
                   const mime = String(att.mime_type || '').toLowerCase()
-                  const nameRef = String(att.stored_filename || att.original_filename || '').toLowerCase()
+                  const nameRef = String(att.original_filename || att.stored_filename || '').toLowerCase()
                   const isImage = mime.startsWith('image/') || /\.(jpg|jpeg|png|gif|webp|bmp)$/i.test(nameRef)
                   const apiUrl = (import.meta.env.VITE_API_URL || 'http://localhost:3000/api')
                   const url = `${apiUrl}/files/raw/${att.id}`
@@ -422,7 +414,7 @@ const ConfirmDeleteModal = ({ isOpen, onClose, onConfirm }) => {
 const AttachmentPreviewModal = ({ isOpen, att, onClose }) => {
   if (!isOpen || !att) return null
   const mime = String(att.mime_type || '').toLowerCase()
-  const nameRef = String(att.stored_filename || att.original_filename || '').toLowerCase()
+  const nameRef = String(att.original_filename || att.stored_filename || '').toLowerCase()
   const isImage = mime.startsWith('image/') || /\.(jpg|jpeg|png|gif|webp|bmp)$/i.test(nameRef)
   const apiUrl = (import.meta.env.VITE_API_URL || 'http://localhost:3000/api')
   const url = `${apiUrl}/files/raw/${att.id}`
@@ -468,11 +460,154 @@ const ExportModal = ({ isOpen, onClose, messengerOptions, data }) => {
     })
   }
 
-  const handleExportPDF = () => {
+  const handleExportPDF = async () => {
     const rows = filterRows()
-    const doc = new jsPDF()
-    const head = [["No. Invoice","Customer","Item","Tanggal Kirim","Tanggal Terima","Messenger","Penerima","Status"]]
-    const body = rows.map(r => [
+    const apiUrl = (import.meta.env.VITE_API_URL || 'http://localhost:3000/api')
+    const logoSrc = import.meta.env.VITE_COMPANY_LOGO || sefasLogoPng
+    const companyName = (import.meta.env.VITE_COMPANY_NAME || 'PT. SEFAS PELINDOTAMA')
+    const companyAddr = (import.meta.env.VITE_COMPANY_ADDRESS || 'Landasan Ulin Sel., Kec. Liang Anggang, Kota Banjar Baru, Kalimantan Selatan 70722')
+    const companyPhone = (import.meta.env.VITE_COMPANY_PHONE || '05116747319')
+    const companyEmail = (import.meta.env.VITE_COMPANY_EMAIL || '')
+
+    const loadImage = async (src) => {
+      if (!src) return null
+      const finalSrc = src
+      const isSvg = String(finalSrc).toLowerCase().endsWith('.svg')
+      if (isSvg) {
+        try {
+          const text = await (await fetch(finalSrc)).text()
+          const blob = new Blob([text], { type: 'image/svg+xml' })
+          const url = URL.createObjectURL(blob)
+          const result = await new Promise((resolve) => {
+            const img = new Image()
+            img.onload = () => {
+              const canvas = document.createElement('canvas')
+              canvas.width = img.width || 400
+              canvas.height = img.height || 120
+              const ctx = canvas.getContext('2d')
+              ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+              URL.revokeObjectURL(url)
+              resolve({ dataUrl: canvas.toDataURL('image/png'), width: canvas.width, height: canvas.height, format: 'PNG' })
+            }
+            img.src = url
+          })
+          return result
+        } catch { return null }
+      }
+      try {
+        const result = await new Promise((resolve) => {
+          const img = new Image()
+          img.crossOrigin = 'anonymous'
+          img.onload = () => {
+            const canvas = document.createElement('canvas')
+            canvas.width = img.naturalWidth || img.width || 400
+            canvas.height = img.naturalHeight || img.height || 120
+            const ctx = canvas.getContext('2d')
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+            const isPng = String(finalSrc).toLowerCase().endsWith('.png')
+            const dataUrl = isPng ? canvas.toDataURL('image/png') : canvas.toDataURL('image/jpeg', 0.72)
+            resolve({ dataUrl, width: canvas.width, height: canvas.height, format: isPng ? 'PNG' : 'JPEG' })
+          }
+          img.src = finalSrc
+        })
+        return result
+      } catch { return null }
+    }
+
+    const rowsWithLampiran = await Promise.all(rows.map(async (r) => {
+      try {
+        const resp = await fileAPI.getAll({ delivery_id: r.id, category: 'delivery_proof' })
+        const arr = Array.isArray(resp?.data) ? resp.data : (Array.isArray(resp) ? resp : [])
+        const primary = Array.isArray(arr) && arr.length ? arr : (Array.isArray((resp?.data ?? resp)?.data) ? (resp?.data ?? resp)?.data : [])
+        const initial = Array.isArray(primary) ? primary : []
+        const linksPrimary = initial.map(att => `${apiUrl}/files/raw/${att.id}`)
+        if (linksPrimary.length) return { ...r, lampiranLinks: linksPrimary }
+        const fallbackResp = await fileAPI.getAll({ delivery_id: r.id })
+        const fArr = Array.isArray(fallbackResp?.data) ? fallbackResp.data : (Array.isArray(fallbackResp) ? fallbackResp : [])
+        const fallback = Array.isArray(fArr) && fArr.length ? fArr : (Array.isArray((fallbackResp?.data ?? fallbackResp)?.data) ? (fallbackResp?.data ?? fallbackResp)?.data : [])
+        const linksFallback = (Array.isArray(fallback) ? fallback : []).map(att => `${apiUrl}/files/raw/${att.id}`)
+        return { ...r, lampiranLinks: linksFallback }
+      } catch { return { ...r, lampiranLinks: [] } }
+    }))
+
+    const doc = new jsPDF({ unit: 'mm', format: 'a4', compress: true, putOnlyUsedFonts: true, floatPrecision: 2 })
+    const pw = doc.internal.pageSize.getWidth()
+    const ph = doc.internal.pageSize.getHeight()
+
+    const logo = await loadImage(logoSrc)
+    const ml = 16
+    const mr = 16
+    let lw = 0
+    let lh = 0
+    const lx = ml
+    const ly = 16
+    if (logo?.dataUrl && logo?.width && logo?.height) {
+      const maxW = 34
+      const maxH = 20
+      const scale = Math.min(maxW / logo.width, maxH / logo.height)
+      lw = Math.max(1, Math.round(logo.width * scale))
+      lh = Math.max(1, Math.round(logo.height * scale))
+      try { doc.addImage(logo.dataUrl, logo.format || 'PNG', lx, ly, lw, lh) } catch { void 0 }
+    }
+    doc.setTextColor(35, 35, 35)
+    const tx = lx + lw + 8
+    doc.setFontSize(16)
+    const ny = ly + (lh ? Math.round(lh * 0.55) : 20)
+    doc.text(String(companyName), tx + 6, ny)
+    doc.setFontSize(9.5)
+    const contactLine = companyEmail ? `${companyAddr} | ${companyPhone} | ${companyEmail}` : `${companyAddr} | ${companyPhone}`
+    const cy = ny + 5
+    doc.text(contactLine, tx + 6, cy, { maxWidth: pw - (tx + 6) })
+    doc.setFontSize(13)
+    doc.setDrawColor(200)
+    doc.setLineWidth(0.6)
+    const sepX = lx + lw + 4
+    const sepTop = ly
+    const sepBottom = Math.max(cy, ly + lh)
+    doc.line(sepX, sepTop, sepX, sepBottom)
+
+    const ty = cy + 14
+    doc.text('Laporan Delivered', ml, ty)
+    const rangeText = `Rentang: ${startDate || '-'} s.d ${endDate || '-'}`
+    doc.setFontSize(10)
+    const rangeW = doc.getTextWidth(rangeText)
+    doc.text(rangeText, pw - mr - rangeW, ty)
+    if (selectedMessenger) {
+      const msgText = `Messenger: ${selectedMessenger}`
+      const msgW = doc.getTextWidth(msgText)
+      doc.text(msgText, pw - mr - msgW, ty + 6)
+    }
+    doc.setDrawColor(250, 175, 119)
+    doc.setLineWidth(0.7)
+    doc.setFillColor(248, 248, 248)
+    const contentX = ml
+    const tableStartY = ty + 12
+    const contentY = tableStartY
+    const contentW = pw - (ml + mr)
+    const contentH = ph - (tableStartY + 22)
+    doc.rect(contentX, contentY, contentW, contentH, 'F')
+    if (logo?.dataUrl) {
+      try {
+        if (doc.GState) {
+          const gs = new doc.GState({ opacity: 0.08 })
+          doc.setGState(gs)
+        }
+        const wmMaxW = pw * 0.6
+        const wmScale = logo.width && logo.height ? Math.min(wmMaxW / logo.width, (ph * 0.6) / logo.height) : 1
+        const wmW = logo.width ? Math.round(logo.width * wmScale) : 120
+        const wmH = logo.height ? Math.round(logo.height * wmScale) : 60
+        const wmX = (pw - wmW) / 2
+        const wmY = (ph - wmH) / 2 + 6
+        doc.addImage(logo.dataUrl, logo.format || 'PNG', wmX, wmY, wmW, wmH)
+        if (doc.GState) {
+          const gsReset = new doc.GState({ opacity: 1 })
+          doc.setGState(gsReset)
+        }
+      } catch { void 0 }
+    }
+
+    const head = [["Invoice","Customer","Item","Tgl Kirim","Tgl Terima","Messenger","Penerima","Status","Lampiran"]]
+    const body = rowsWithLampiran.map(r => [
       r.invoice || '',
       r.customer || '',
       r.item || '',
@@ -480,16 +615,75 @@ const ExportModal = ({ isOpen, onClose, messengerOptions, data }) => {
       String(r.deliveredDateRaw || '').slice(0,10),
       r.messenger || '',
       r.recipient || '',
-      r.status || ''
+      r.status || '',
+      Array.isArray(r.lampiranLinks) && r.lampiranLinks.length ? r.lampiranLinks.join('\n') : ''
     ])
-    autoTable(doc, { head, body, styles: { fontSize: 8 } })
-    const fn = `Delivered_Report_${startDate || 'all'}_${endDate || 'all'}.pdf`
+    autoTable(doc, {
+      head,
+      body,
+      startY: tableStartY,
+      margin: { left: ml, right: mr, bottom: 26 },
+      tableWidth: pw - (ml + mr),
+      styles: { fontSize: 7.6, halign: 'left', valign: 'middle', cellPadding: 1.8, overflow: 'linebreak' },
+      headStyles: { fillColor: [250,175,119], textColor: 255, fontSize: 8.2, halign: 'center', valign: 'middle', cellPadding: 1.9 },
+      alternateRowStyles: { fillColor: [253, 244, 236] },
+      columnStyles: {
+        0: { halign: 'center' },
+        1: { halign: 'left' },
+        2: { halign: 'left' },
+        3: { halign: 'center' },
+        4: { halign: 'center' },
+        5: { halign: 'left' },
+        6: { halign: 'left' },
+        7: { halign: 'center' },
+        8: { halign: 'left' }
+      },
+      didDrawPage: (data) => {
+        const pw2 = doc.internal.pageSize.getWidth()
+        const ph2 = doc.internal.pageSize.getHeight()
+        doc.setFontSize(9)
+        doc.setTextColor(120)
+        const printedAt = new Date()
+        const dd = String(printedAt.getDate()).padStart(2, '0')
+        const mm = String(printedAt.getMonth()+1).padStart(2, '0')
+        const yyyy = printedAt.getFullYear()
+        const hh = String(printedAt.getHours()).padStart(2, '0')
+        const ii = String(printedAt.getMinutes()).padStart(2, '0')
+        doc.text(`Dicetak: ${dd}/${mm}/${yyyy} ${hh}:${ii}`, 16, ph2 - 11)
+        const totalPages = doc.internal.getNumberOfPages()
+        doc.text(`Halaman ${data.pageNumber} dari ${totalPages}`, pw2 - 48, ph2 - 11)
+        doc.setDrawColor(250, 175, 119)
+        doc.setLineWidth(0.5)
+        doc.line(12, ph2 - 14, pw2 - 12, ph2 - 14)
+        doc.setTextColor(80)
+        doc.setFontSize(9)
+        const f3 = companyEmail ? `${companyEmail}` : ''
+        if (f3) doc.text(f3, pw2 - 14 - doc.getTextWidth(f3), ph2 - 6)
+      }
+    })
+    const fn = `Delivered_Report_${startDate || 'all'}_${endDate || 'all'}_${selectedMessenger || 'all'}.pdf`
     doc.save(fn)
   };
 
-  const handleExportExcel = () => {
+  const handleExportExcel = async () => {
     const rows = filterRows()
-    const sheetData = rows.map(r => ({
+    const apiUrl = (import.meta.env.VITE_API_URL || 'http://localhost:3000/api')
+    const rowsWithLampiran = await Promise.all(rows.map(async (r) => {
+      try {
+        const resp = await fileAPI.getAll({ delivery_id: r.id, category: 'delivery_proof' })
+        const arr = Array.isArray(resp?.data) ? resp.data : (Array.isArray(resp) ? resp : [])
+        const primary = Array.isArray(arr) && arr.length ? arr : (Array.isArray((resp?.data ?? resp)?.data) ? (resp?.data ?? resp)?.data : [])
+        const initial = Array.isArray(primary) ? primary : []
+        const linksPrimary = initial.map(att => `${apiUrl}/files/raw/${att.id}`)
+        if (linksPrimary.length) return { ...r, lampiranLinks: linksPrimary }
+        const fallbackResp = await fileAPI.getAll({ delivery_id: r.id })
+        const fArr = Array.isArray(fallbackResp?.data) ? fallbackResp.data : (Array.isArray(fallbackResp) ? fallbackResp : [])
+        const fallback = Array.isArray(fArr) && fArr.length ? fArr : (Array.isArray((fallbackResp?.data ?? fallbackResp)?.data) ? (fallbackResp?.data ?? fallbackResp)?.data : [])
+        const linksFallback = (Array.isArray(fallback) ? fallback : []).map(att => `${apiUrl}/files/raw/${att.id}`)
+        return { ...r, lampiranLinks: linksFallback }
+      } catch { return { ...r, lampiranLinks: [] } }
+    }))
+    const sheetData = rowsWithLampiran.map(r => ({
       Invoice: r.invoice || '',
       Customer: r.customer || '',
       Item: r.item || '',
@@ -497,12 +691,24 @@ const ExportModal = ({ isOpen, onClose, messengerOptions, data }) => {
       Tanggal_Terima: String(r.deliveredDateRaw || '').slice(0,10),
       Messenger: r.messenger || '',
       Penerima: r.recipient || '',
-      Status: r.status || ''
+      Status: r.status || '',
+      Lampiran: Array.isArray(r.lampiranLinks) && r.lampiranLinks.length ? r.lampiranLinks.join('\n') : ''
     }))
     const ws = XLSX.utils.json_to_sheet(sheetData)
+    ws['!cols'] = [
+      { wch: 14 },
+      { wch: 22 },
+      { wch: 18 },
+      { wch: 12 },
+      { wch: 12 },
+      { wch: 18 },
+      { wch: 18 },
+      { wch: 12 },
+      { wch: 65 },
+    ]
     const wb = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(wb, ws, 'Delivered')
-    const fn = `Delivered_Report_${startDate || 'all'}_${endDate || 'all'}.xlsx`
+    const fn = `Delivered_Report_${startDate || 'all'}_${endDate || 'all'}_${selectedMessenger || 'all'}.xlsx`
     XLSX.writeFile(wb, fn)
   };
 
@@ -667,9 +873,17 @@ export const Delivered = () => {
   const handleCustomerClick = async (row) => {
     setSelectedDetail(row);
     try {
-      const resp = await fileAPI.getAll({ delivery_id: row.id });
+      const resp = await fileAPI.getAll({ delivery_id: row.id, category: 'delivery_proof' });
       const data = resp?.data ?? resp;
-      setDeliveryAttachments(Array.isArray(data.data) ? data.data : (Array.isArray(data) ? data : []));
+      const list = Array.isArray(data.data) ? data.data : (Array.isArray(data) ? data : []);
+      if (Array.isArray(list) && list.length) {
+        setDeliveryAttachments(list);
+      } else {
+        const fallbackResp = await fileAPI.getAll({ delivery_id: row.id });
+        const fallbackData = fallbackResp?.data ?? fallbackResp;
+        const fallbackList = Array.isArray(fallbackData.data) ? fallbackData.data : (Array.isArray(fallbackData) ? fallbackData : []);
+        setDeliveryAttachments(Array.isArray(fallbackList) ? fallbackList : []);
+      }
     } catch {
       setDeliveryAttachments([]);
     }
