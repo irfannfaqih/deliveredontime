@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState, useMemo } from "react";
-import { Link, useParams } from "react-router-dom";
-import { useDeliveries, useAuth } from "../hooks/useAPI";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Link, useLocation, useParams } from "react-router-dom";
 import settingsIcon from '../assets/settingIcon.svg';
+import usersIcon from '../assets/users.svg';
+import { useAuth, useDeliveries } from "../hooks/useAPI";
 
 const navigationItems = [
   {
@@ -172,14 +173,17 @@ const DetailModal = ({ isOpen, onClose, data }) => {
 };
 
 export const ReportDetail = () => {
-  const { date } = useParams(); // Get date from URL parameter
+  const { date } = useParams();
+  const location = useLocation();
+  const searchParams = new URLSearchParams(location.search);
+  const messengerParam = searchParams.get('messenger') || '';
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [selectedDetail, setSelectedDetail] = useState(null);
   const [entriesPerPage, setEntriesPerPage] = useState(25);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const profileMenuRef = useRef(null);
-  const { deliveries } = useDeliveries({ date });
+  const { deliveries } = useDeliveries({ date, messenger: messengerParam });
   const { user, logout } = useAuth();
   const navItems = useMemo(() => {
     const base = navigationItems.map(i => ({ ...i }));
@@ -189,6 +193,7 @@ export const ReportDetail = () => {
   }, [user]);
 
   const selectedDate = date ? formatDateText(decodeURIComponent(date)) : "";
+  const selectedMessenger = messengerParam;
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -222,7 +227,10 @@ export const ReportDetail = () => {
     notes: r.notes || "",
     status: r.status || "",
   })) : [];
-  const displayedData = sourceData.slice(0, entriesPerPage);
+  const filteredByMessenger = selectedMessenger
+    ? sourceData.filter(r => String(r.messenger || '').toLowerCase() === String(selectedMessenger).toLowerCase())
+    : sourceData;
+  const displayedData = filteredByMessenger.slice(0, entriesPerPage);
 
   return (
     <div className="bg-[#f5f5f5] w-full min-h-screen flex">
@@ -375,7 +383,7 @@ export const ReportDetail = () => {
                 Report
               </h1>
               <p className="[font-family:'Suprema-Regular',Helvetica] font-normal text-[#9e9e9e] text-[14px] tracking-[0] leading-[normal] mt-1">
-                {selectedDate}
+                {selectedDate}{selectedMessenger ? ` · ${selectedMessenger}` : ''}
               </p>
             </div>
             
@@ -384,8 +392,8 @@ export const ReportDetail = () => {
               <h1 className="[font-family:'Suprema-SemiBold',Helvetica] font-semibold text-black text-xl sm:text-[23.8px] tracking-[0] leading-[normal]">
                 Report
               </h1>
-              <p className="[font-family:'Suprema-Regular',Helvetica] font-normal text-[#9e9e9e] text-sm sm:text-[14px] tracking-[0] leading-[normal] mt-1">
-                {selectedDate}
+              <p className="[font-family:'Suprema-Regular',Helvetica] font-normal text-[#9e9e9e] text-sm sm:text[14px] tracking-[0] leading-[normal] mt-1">
+                {selectedDate}{selectedMessenger ? ` · ${selectedMessenger}` : ''}
               </p>
             </div>
           </div>
@@ -649,4 +657,4 @@ export const ReportDetail = () => {
 };
 
 export default ReportDetail;
-import usersIcon from '../assets/users.svg';
+

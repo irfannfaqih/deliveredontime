@@ -160,43 +160,46 @@ const ExportModal = ({ isOpen, onClose, deliveries, bbmRecords }) => {
       if (endDate && d > endDate) return false;
       return true;
     };
-    const byDate = {};
+    const byDateMessenger = {};
     (Array.isArray(deliveries) ? deliveries : []).forEach(r => {
       const dateKey = r.sentDate || r.sent_date;
       if (!dateKey) return;
       if (!inRange(dateKey)) return;
-      if (selectedMessenger && String(r.messenger || '').toLowerCase() !== String(selectedMessenger).toLowerCase()) return;
-      const key = toLocalYMD(dateKey);
-      if (!byDate[key]) byDate[key] = { date: key, invoiceCount: 0, kmAwal: null, kmAkhir: null };
-      byDate[key].invoiceCount += 1;
+      const messenger = r.messenger || 'Unknown';
+      if (selectedMessenger && String(messenger || '').toLowerCase() !== String(selectedMessenger).toLowerCase()) return;
+      const key = `${toLocalYMD(dateKey)}_${messenger}`;
+      if (!byDateMessenger[key]) byDateMessenger[key] = { date: toLocalYMD(dateKey), messenger, invoiceCount: 0, kmAwal: null, kmAkhir: null };
+      byDateMessenger[key].invoiceCount += 1;
     });
     (Array.isArray(bbmRecords) ? bbmRecords : []).forEach(b => {
       const dateKey = b.tanggal;
       if (!dateKey) return;
       if (!inRange(dateKey)) return;
-      if (selectedMessenger && String(b.messenger || '').toLowerCase() !== String(selectedMessenger).toLowerCase()) return;
-      const key = toLocalYMD(dateKey);
-      if (!byDate[key]) byDate[key] = { date: key, invoiceCount: 0, kmAwal: null, kmAkhir: null };
+      const messenger = b.messenger || 'Unknown';
+      if (selectedMessenger && String(messenger || '').toLowerCase() !== String(selectedMessenger).toLowerCase()) return;
+      const key = `${toLocalYMD(dateKey)}_${messenger}`;
+      if (!byDateMessenger[key]) byDateMessenger[key] = { date: toLocalYMD(dateKey), messenger, invoiceCount: 0, kmAwal: null, kmAkhir: null };
       const awal = b.kilometer_awal != null ? Number(b.kilometer_awal) : null;
       const akhir = b.kilometer_akhir != null ? Number(b.kilometer_akhir) : null;
-      if (awal != null) byDate[key].kmAwal = byDate[key].kmAwal == null ? awal : Math.min(byDate[key].kmAwal, awal);
-      if (akhir != null) byDate[key].kmAkhir = byDate[key].kmAkhir == null ? akhir : Math.max(byDate[key].kmAkhir, akhir);
+      if (awal != null) byDateMessenger[key].kmAwal = byDateMessenger[key].kmAwal == null ? awal : Math.min(byDateMessenger[key].kmAwal, awal);
+      if (akhir != null) byDateMessenger[key].kmAkhir = byDateMessenger[key].kmAkhir == null ? akhir : Math.max(byDateMessenger[key].kmAkhir, akhir);
     });
-    const rows = Object.values(byDate).map(r => ({
+    const rows = Object.values(byDateMessenger).map(r => ({
       date: r.date,
+      messenger: r.messenger,
       invoice: r.invoiceCount,
       kmAwal: r.kmAwal == null ? '' : r.kmAwal,
       kmAkhir: r.kmAkhir == null ? '' : r.kmAkhir,
       totalKm: r.kmAwal != null && r.kmAkhir != null ? (r.kmAkhir - r.kmAwal) : ''
     }));
-    rows.sort((a,b) => a.date.localeCompare(b.date));
+    rows.sort((a,b) => a.date.localeCompare(b.date) || String(a.messenger).localeCompare(String(b.messenger)));
     return rows;
   };
 
   const handleExportPDF = async () => {
     const rows = buildRows();
     const rowsWithExtras = await Promise.all(rows.map(async (r) => {
-      const matched = (Array.isArray(bbmRecords) ? bbmRecords : []).filter(b => toLocalYMD(b.tanggal) === String(r.date) && (!selectedMessenger || String(b.messenger || '').toLowerCase() === String(selectedMessenger).toLowerCase()));
+      const matched = (Array.isArray(bbmRecords) ? bbmRecords : []).filter(b => toLocalYMD(b.tanggal) === String(r.date) && String(b.messenger || '').toLowerCase() === String(r.messenger || '').toLowerCase());
       let sumRupiah = 0;
       const apiUrl = (import.meta.env.VITE_API_URL || 'http://localhost:3000/api');
       const linkList = [];
@@ -349,9 +352,10 @@ const ExportModal = ({ isOpen, onClose, deliveries, bbmRecords }) => {
     }
 
     autoTable(doc, {
-      head: [["Tanggal","Invoice","KM Awal","KM Akhir","Total KM","Jumlah BBM","Lampiran"]],
+      head: [["Tanggal","Messenger","Invoice","KM Awal","KM Akhir","Total KM","Jumlah BBM","Lampiran"]],
       body: rowsWithExtras.map(r => [
         formatDateText(r.date),
+        r.messenger,
         String(r.invoice),
         String(r.kmAwal),
         String(r.kmAkhir),
@@ -365,7 +369,7 @@ const ExportModal = ({ isOpen, onClose, deliveries, bbmRecords }) => {
       styles: { fontSize: 9, halign: 'center', valign: 'middle', cellPadding: 2.2 },
       headStyles: { fillColor: [250,175,119], textColor: 255, fontSize: 10, halign: 'center', valign: 'middle', cellPadding: 2.2 },
       alternateRowStyles: { fillColor: [253, 244, 236] },
-      columnStyles: { 0: { halign: 'center' }, 1: { halign: 'center' }, 2: { halign: 'center' }, 3: { halign: 'center' }, 4: { halign: 'center' }, 5: { halign: 'center' }, 6: { halign: 'left' } },
+      columnStyles: { 0: { halign: 'center' }, 1: { halign: 'center' }, 2: { halign: 'center' }, 3: { halign: 'center' }, 4: { halign: 'center' }, 5: { halign: 'center' }, 6: { halign: 'center' }, 7: { halign: 'left' } },
       didDrawPage: (data) => {
         const pw = doc.internal.pageSize.getWidth();
         const ph = doc.internal.pageSize.getHeight();
@@ -422,7 +426,7 @@ const ExportModal = ({ isOpen, onClose, deliveries, bbmRecords }) => {
   const handleExportExcel = async () => {
     const rows = buildRows();
     const rowsWithExtras = await Promise.all(rows.map(async (r) => {
-      const matched = (Array.isArray(bbmRecords) ? bbmRecords : []).filter(b => toLocalYMD(b.tanggal) === String(r.date) && (!selectedMessenger || String(b.messenger || '').toLowerCase() === String(selectedMessenger).toLowerCase()));
+      const matched = (Array.isArray(bbmRecords) ? bbmRecords : []).filter(b => toLocalYMD(b.tanggal) === String(r.date) && String(b.messenger || '').toLowerCase() === String(r.messenger || '').toLowerCase());
       let sumRupiah = 0;
       const apiUrl = (import.meta.env.VITE_API_URL || 'http://localhost:3000/api');
       const linkList = [];
@@ -443,6 +447,7 @@ const ExportModal = ({ isOpen, onClose, deliveries, bbmRecords }) => {
 
     const sheetData = rowsWithExtras.map(r => ({
       Tanggal: formatDateText(r.date),
+      Messenger: r.messenger,
       Invoice: r.invoice,
       KM_Awal: r.kmAwal,
       KM_Akhir: r.kmAkhir,
@@ -585,6 +590,7 @@ export const Report = () => {
   const [searchKmAkhir, setSearchKmAkhir] = useState("");
   const [searchInvoice, setSearchInvoice] = useState("");
   const [searchDate, setSearchDate] = useState("");
+  const [searchMessenger, setSearchMessenger] = useState("");
   const [entriesPerPage, setEntriesPerPage] = useState(25);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [isAttachmentModalOpen, setIsAttachmentModalOpen] = useState(false);
@@ -621,36 +627,41 @@ export const Report = () => {
   
 
   const buildSummary = () => {
-    const byDate = {};
+    const byDateMessenger = {};
     (Array.isArray(deliveries) ? deliveries : []).forEach(r => {
       const dateKey = r.sentDate || r.sent_date || r.tanggal;
       if (!dateKey) return;
-      const key = toLocalYMD(dateKey);
-      if (!byDate[key]) byDate[key] = { rawDate: key, invoiceCount: 0, kmAwal: null, kmAkhir: null, totalKm: null, jumlahBbm: 0 };
-      byDate[key].invoiceCount += 1;
+      const messenger = r.messenger || 'Unknown';
+      const d = toLocalYMD(dateKey);
+      const key = `${d}_${messenger}`;
+      if (!byDateMessenger[key]) byDateMessenger[key] = { rawDate: d, messenger, invoiceCount: 0, kmAwal: null, kmAkhir: null, jumlahBbm: 0 };
+      byDateMessenger[key].invoiceCount += 1;
     });
     (Array.isArray(bbmRecords) ? bbmRecords : []).forEach(b => {
       const dateKey = b.tanggal || b.sentDate || b.sent_date;
       if (!dateKey) return;
-      const key = toLocalYMD(dateKey);
-      if (!byDate[key]) byDate[key] = { rawDate: key, invoiceCount: 0, kmAwal: null, kmAkhir: null, totalKm: null, jumlahBbm: 0 };
+      const messenger = b.messenger || 'Unknown';
+      const d = toLocalYMD(dateKey);
+      const key = `${d}_${messenger}`;
+      if (!byDateMessenger[key]) byDateMessenger[key] = { rawDate: d, messenger, invoiceCount: 0, kmAwal: null, kmAkhir: null, jumlahBbm: 0 };
       const awal = b.kilometer_awal != null ? Number(b.kilometer_awal) : null;
       const akhir = b.kilometer_akhir != null ? Number(b.kilometer_akhir) : null;
-      if (awal != null) byDate[key].kmAwal = byDate[key].kmAwal == null ? awal : Math.min(byDate[key].kmAwal, awal);
-      if (akhir != null) byDate[key].kmAkhir = byDate[key].kmAkhir == null ? akhir : Math.max(byDate[key].kmAkhir, akhir);
+      if (awal != null) byDateMessenger[key].kmAwal = byDateMessenger[key].kmAwal == null ? awal : Math.min(byDateMessenger[key].kmAwal, awal);
+      if (akhir != null) byDateMessenger[key].kmAkhir = byDateMessenger[key].kmAkhir == null ? akhir : Math.max(byDateMessenger[key].kmAkhir, akhir);
       const amt = b.jumlah_bbm_rupiah != null ? Number(b.jumlah_bbm_rupiah) : 0;
-      if (isFinite(amt)) byDate[key].jumlahBbm += amt;
+      if (isFinite(amt)) byDateMessenger[key].jumlahBbm += amt;
     });
-    const rows = Object.values(byDate).map(r => ({
+    const rows = Object.values(byDateMessenger).map(r => ({
       rawDate: r.rawDate,
       dateText: formatDateText(r.rawDate),
+      messenger: r.messenger,
       invoiceCount: r.invoiceCount,
       kmAwal: r.kmAwal,
       kmAkhir: r.kmAkhir,
       totalKm: r.kmAwal != null && r.kmAkhir != null ? (r.kmAkhir - r.kmAwal) : null,
       jumlahBbm: r.jumlahBbm,
     }));
-    rows.sort((a,b) => new Date(a.rawDate) - new Date(b.rawDate));
+    rows.sort((a,b) => (new Date(a.rawDate) - new Date(b.rawDate)) || String(a.messenger).localeCompare(String(b.messenger)));
     return rows.reverse();
   };
 
@@ -669,8 +680,11 @@ export const Report = () => {
     const matchesDate = searchDate
       ? String(row.dateText || '').toLowerCase().includes(searchDate.toLowerCase())
       : true;
+    const matchesMessenger = searchMessenger
+      ? String(row.messenger || '').toLowerCase().includes(searchMessenger.toLowerCase())
+      : true;
 
-    return matchesKmAwal && matchesKmAkhir && matchesInvoice && matchesDate;
+    return matchesKmAwal && matchesKmAkhir && matchesInvoice && matchesDate && matchesMessenger;
   });
 
   const displayedData = filteredData.slice(0, entriesPerPage);
@@ -983,6 +997,24 @@ export const Report = () => {
                     />
                   </div>
                 </div>
+
+                <div className="flex flex-col gap-2">
+                  <label className="[font-family:'Inter',Helvetica] font-medium text-black text-xs tracking-[0] leading-[normal]">
+                    Messenger
+                  </label>
+                  <div className="relative">
+                    <svg className="absolute left-[13.68px] top-1/2 -translate-y-1/2 w-[13.68px] h-[13.68px] text-[#9e9e9e]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <circle cx="11" cy="11" r="8"></circle>
+                      <path d="m21 21-4.35-4.35"></path>
+                    </svg>
+                    <input
+                      placeholder="Messenger"
+                      value={searchMessenger}
+                      onChange={(e) => setSearchMessenger(e.target.value)}
+                      className="w-full pl-[35px] pr-[13.68px] py-[17.1px] h-auto bg-white rounded-[10.26px] border-[0.85px] border-[#cccccccc] [font-family:'Inter',Helvetica] font-medium text-black text-[10.3px] placeholder:text-[#9e9e9e]"
+                    />
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -1000,6 +1032,9 @@ export const Report = () => {
                     <tr className="border-none">
                       <th className="[font-family:'Suprema-Regular',Helvetica] font-normal text-[#aeaeae] text-[12.8px] tracking-[0] leading-[normal] text-left pb-2">
                         Tanggal
+                      </th>
+                      <th className="[font-family:'Suprema-Regular',Helvetica] font-normal text-[#aeaeae] text-[12.8px] tracking-[0] leading-[normal] text-left pb-2">
+                        Messenger
                       </th>
                       <th className="[font-family:'Suprema-Regular',Helvetica] font-normal text-[#aeaeae] text-[12.8px] tracking-[0] leading-[normal] text-left pb-2">
                         Jumlah Invoice
@@ -1028,11 +1063,14 @@ export const Report = () => {
                         >
                           <td className="[font-family:'Suprema-Regular',Helvetica] font-normal text-[#404040] text-[12.8px] tracking-[0] leading-[normal] py-3 underline">
                             <Link 
-                              to={`/report/detail/${encodeURIComponent(row.rawDate)}`}
+                              to={`/report/detail/${encodeURIComponent(row.rawDate)}?messenger=${encodeURIComponent(row.messenger)}`}
                               className="hover:text-[#faa463] transition-colors cursor-pointer"
                             >
                               {row.dateText}
                             </Link>
+                          </td>
+                          <td className="[font-family:'Suprema-Regular',Helvetica] font-normal text-[#c7c7c7] text-[12.8px] tracking-[0] leading-[normal] py-3">
+                            {row.messenger}
                           </td>
                           <td className="[font-family:'Suprema-Regular',Helvetica] font-normal text-[#c7c7c7] text-[12.8px] tracking-[0] leading-[normal] py-3">
                             {row.invoiceCount}
@@ -1055,7 +1093,7 @@ export const Report = () => {
                     ) : (
                       <tr>
                         <td
-                          colSpan={6}
+                          colSpan={7}
                           className="text-center py-8 text-[#9e9e9e] [font-family:'Inter',Helvetica]"
                         >
                           No data found
@@ -1070,8 +1108,8 @@ export const Report = () => {
                   {displayedData.length > 0 ? (
                     displayedData.map((row, index) => (
                       <Link
-                        key={`report-mobile-${row.rawDate}-${index}`}
-                        to={`/report/detail/${encodeURIComponent(row.rawDate)}`}
+                        key={`report-mobile-${row.rawDate}-${row.messenger}-${index}`}
+                        to={`/report/detail/${encodeURIComponent(row.rawDate)}?messenger=${encodeURIComponent(row.messenger)}`}
                         className="block"
                       >
                         <div className="bg-[#fafafa] border border-[#e5e5e5] rounded-[12px] p-3.5 hover:border-[#faa463] hover:shadow-md transition-all duration-200">
@@ -1082,6 +1120,9 @@ export const Report = () => {
                               </p>
                               <p className="[font-family:'Suprema-Regular',Helvetica] font-normal text-[#9e9e9e] text-[11px]">
                                 {row.invoiceCount} Invoice
+                              </p>
+                              <p className="[font-family:'Suprema-Regular',Helvetica] font-normal text-[#9e9e9e] text-[11px]">
+                                Messenger: {row.messenger}
                               </p>
                             </div>
                             
