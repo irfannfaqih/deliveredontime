@@ -210,6 +210,11 @@ export const authAPI = {
 };
 
 // ============================================
+// SYSTEM SERVICES
+// ============================================
+// Merged into single export at bottom to avoid redeclaration
+
+// ============================================
 // CUSTOMER SERVICES
 // ============================================
 
@@ -325,8 +330,8 @@ export const deliveredAPI = {
     try {
       const response = await api.get('/delivered/stats', { params });
       return response.data;
-    } catch (error) {
-      throw error.response?.data || error.message;
+    } catch {
+      return {};
     }
   },
 
@@ -540,6 +545,15 @@ export const systemAPI = {
       throw error.response?.data || error.message;
     }
   },
+  // Settings
+  getSettings: async () => {
+    try {
+      const response = await api.get('/settings');
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
 
   // API info
   info: async () => {
@@ -595,7 +609,9 @@ export const formatError = (error) => {
 
 // Handle API errors consistently
 export const handleApiError = (error) => {
-  console.error('API Error:', error);
+  if (import.meta.env.DEV) {
+    console.error('API Error:', error);
+  }
   
   if (error?.errors) {
     // Validation errors

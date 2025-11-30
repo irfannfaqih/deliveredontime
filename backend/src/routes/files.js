@@ -1,11 +1,12 @@
 import { Router } from 'express'
-import path from 'path'; // ✅ TAMBAHKAN INI
+import path from 'path'
+import fs from 'fs'
 import { query } from '../db/mysql.js'
 import { requireAuth } from '../middleware/auth.js'
 
 const router = Router()
 
-// ✅ ENDPOINT INI TETAP ADA (JANGAN DIHAPUS)
+// Mengambil daftar lampiran berdasarkan filter (delivery, bbm, customer) atau gabungan semuanya
 router.get('/', requireAuth, async (req, res) => {
   try {
     const { delivery_id, bbm_record_id, customer_id } = req.query || {}
@@ -30,7 +31,7 @@ router.get('/', requireAuth, async (req, res) => {
   }
 })
 
-// ✅ ENDPOINT INI TETAP ADA (JANGAN DIHAPUS)
+// Mengambil detail satu lampiran berdasarkan id dari tiga kategori tabel
 router.get('/:id', requireAuth, async (req, res) => {
   try {
     const id = req.params.id
@@ -46,7 +47,9 @@ router.get('/:id', requireAuth, async (req, res) => {
   }
 })
 
-// ✅ ENDPOINT INI YANG DIPERBAIKI
+const uploadDir = path.resolve(process.env.UPLOAD_DIR || 'backend/uploads')
+
+// Mengirim konten file mentah berdasarkan id, mengecek di tiga tabel lampiran
 router.get('/raw/:id', async (req, res) => {
   try {
     const id = req.params.id
@@ -55,17 +58,13 @@ router.get('/raw/:id', async (req, res) => {
     const a = await query('SELECT *, "delivery_proof" as category FROM attachments WHERE id = ?', [id])
     if (a.length) {
       const row = a[0]
-      const absolutePath = path.resolve(row.file_path)
-      
-      if (row.mime_type) {
-        res.setHeader('Content-Type', row.mime_type)
+      let absolutePath = path.resolve(row.file_path)
+      if (!fs.existsSync(absolutePath)) {
+        absolutePath = path.resolve(uploadDir, row.stored_filename)
       }
-      
+      if (row.mime_type) res.setHeader('Content-Type', row.mime_type)
       return res.sendFile(absolutePath, (err) => {
-        if (err) {
-          console.error('Error sending file:', err)
-          return res.status(404).json({ error: 'File tidak ditemukan di server' })
-        }
+        if (err) return res.status(404).json({ error: 'File tidak ditemukan di server' })
       })
     }
     
@@ -73,17 +72,13 @@ router.get('/raw/:id', async (req, res) => {
     const b = await query('SELECT *, "bbm_proof" as category FROM bbm_attachments WHERE id = ?', [id])
     if (b.length) {
       const row = b[0]
-      const absolutePath = path.resolve(row.file_path)
-      
-      if (row.mime_type) {
-        res.setHeader('Content-Type', row.mime_type)
+      let absolutePath = path.resolve(row.file_path)
+      if (!fs.existsSync(absolutePath)) {
+        absolutePath = path.resolve(uploadDir, row.stored_filename)
       }
-      
+      if (row.mime_type) res.setHeader('Content-Type', row.mime_type)
       return res.sendFile(absolutePath, (err) => {
-        if (err) {
-          console.error('Error sending file:', err)
-          return res.status(404).json({ error: 'File tidak ditemukan di server' })
-        }
+        if (err) return res.status(404).json({ error: 'File tidak ditemukan di server' })
       })
     }
     
@@ -91,17 +86,13 @@ router.get('/raw/:id', async (req, res) => {
     const c = await query('SELECT *, "customer_proof" as category FROM customer_attachments WHERE id = ?', [id])
     if (c.length) {
       const row = c[0]
-      const absolutePath = path.resolve(row.file_path)
-      
-      if (row.mime_type) {
-        res.setHeader('Content-Type', row.mime_type)
+      let absolutePath = path.resolve(row.file_path)
+      if (!fs.existsSync(absolutePath)) {
+        absolutePath = path.resolve(uploadDir, row.stored_filename)
       }
-      
+      if (row.mime_type) res.setHeader('Content-Type', row.mime_type)
       return res.sendFile(absolutePath, (err) => {
-        if (err) {
-          console.error('Error sending file:', err)
-          return res.status(404).json({ error: 'File tidak ditemukan di server' })
-        }
+        if (err) return res.status(404).json({ error: 'File tidak ditemukan di server' })
       })
     }
     
@@ -112,7 +103,7 @@ router.get('/raw/:id', async (req, res) => {
   }
 })
 
-// ✅ ENDPOINT INI TETAP ADA (JANGAN DIHAPUS)
+// Menghapus lampiran berdasarkan id, mencari di tiga tabel dan mengembalikan data yang dihapus
 router.delete('/:id', requireAuth, async (req, res) => {
   try {
     const id = req.params.id

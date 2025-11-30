@@ -1,14 +1,15 @@
-import { Edit2Icon, Trash2Icon, XIcon } from "lucide-react";
-import { useEffect, useRef, useState, useMemo } from "react";
-import { Link } from "react-router-dom";
-import settingsIcon from '../assets/settingIcon.svg';
-import { useAuth, useCustomers } from "../hooks/useAPI";
-import { fileAPI } from "../services/api";
-import { normalizeUrl } from '../utils/url';
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { Edit2Icon, Trash2Icon, XIcon } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import * as XLSX from "xlsx";
-import sefasLogoPng from '../assets/sefas-logo.png';
+import appLogoSvg from '../assets/logo.svg';
+import settingsIcon from '../assets/settingIcon.svg';
+import usersIcon from '../assets/users.svg';
+import { useAuth, useCustomers } from "../hooks/useAPI";
+import { fileAPI, systemAPI } from "../services/api";
+import { normalizeMapsUrl, normalizeUrl } from '../utils/url';
 
 const navigationItems = [
   {
@@ -124,7 +125,10 @@ const AttachmentPreviewModal = ({ isOpen, att, onClose }) => {
   const isImage = mime.startsWith('image/') || /\.(jpg|jpeg|png|gif|webp|bmp)$/i.test(nameRef);
   const apiUrl = (import.meta.env.VITE_API_URL || 'http://localhost:3000/api');
   const ver = att.updated_at || att.created_at || '';
-  const url = `${apiUrl}/files/raw/${att.id}${ver ? `?v=${encodeURIComponent(ver)}` : ''}`;
+  const baseRoot = apiUrl.replace(/\/api\/?$/, '');
+  const url = att?.stored_filename
+    ? `${baseRoot}/uploads/${att.stored_filename}${ver ? `?v=${encodeURIComponent(ver)}` : ''}`
+    : `${apiUrl}/files/raw/${att.id}${ver ? `?v=${encodeURIComponent(ver)}` : ''}`;
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black bg-opacity-70 p-3 sm:p-4" role="dialog" aria-modal="true">
       <div className="relative w-full max-w-[96vw] sm:max-w-[90vw] lg:max-w-[80vw] h-auto">
@@ -220,7 +224,10 @@ const EditCustomerModal = ({ isOpen, onClose, customer, onSave, attachments = []
                   const isImage = mime.startsWith('image/') || /\.(jpg|jpeg|png|gif|webp|bmp)$/i.test(nameRef);
                   const apiUrl = (import.meta.env.VITE_API_URL || 'http://localhost:3000/api');
                   const ver = att.updated_at || att.created_at || '';
-                  const url = `${apiUrl}/files/raw/${att.id}${ver ? `?v=${encodeURIComponent(ver)}` : ''}`;
+                  const baseRoot = apiUrl.replace(/\/api\/?$/, '');
+                  const url = att?.stored_filename
+                    ? `${baseRoot}/uploads/${att.stored_filename}${ver ? `?v=${encodeURIComponent(ver)}` : ''}`
+                    : `${apiUrl}/files/raw/${att.id}${ver ? `?v=${encodeURIComponent(ver)}` : ''}`;
                   return (
                     <div key={att.id} className="relative group">
                       {isImage && !imageFail[att.id] ? (
@@ -327,7 +334,10 @@ const CustomerDetailModal = ({ isOpen, onClose, customer, attachments, onPreview
                   const nameRef = String(att?.stored_filename || att?.original_filename || '').toLowerCase();
                   return mime.startsWith('image/') || /\.(jpg|jpeg|png|gif|webp|bmp)$/i.test(nameRef);
                 }) : null;
-                const heroUrl = imageAtt ? `${apiUrl}/files/raw/${imageAtt.id}` : (customer.image ? normalizeUrl(customer.image) : null);
+                const baseRoot = apiUrl.replace(/\/api\/?$/, '');
+                const heroUrl = imageAtt
+                  ? (imageAtt?.stored_filename ? `${baseRoot}/uploads/${imageAtt.stored_filename}` : `${apiUrl}/files/raw/${imageAtt.id}`)
+                  : (customer.image ? normalizeUrl(customer.image) : null);
                 if (!heroUrl) return null;
                 return (
                   <div className="relative group">
@@ -363,7 +373,8 @@ const CustomerDetailModal = ({ isOpen, onClose, customer, attachments, onPreview
                     const mime = String(att.mime_type || '').toLowerCase();
                     const nameRef = String(att.stored_filename || att.original_filename || '').toLowerCase();
                     const isImage = mime.startsWith('image/') || /\.(jpg|jpeg|png|gif|webp|bmp)$/i.test(nameRef);
-                    const url = `${apiUrl}/files/raw/${att.id}`;
+                    const baseRoot = apiUrl.replace(/\/api\/?$/, '');
+                    const url = att?.stored_filename ? `${baseRoot}/uploads/${att.stored_filename}` : `${apiUrl}/files/raw/${att.id}`;
                     return (
                       <div key={att.id} className="relative group">
                         {isImage ? (
@@ -431,7 +442,7 @@ const CustomerDetailModal = ({ isOpen, onClose, customer, attachments, onPreview
                       Google Maps
                     </h2>
                     <a
-                      href={customer.googleMaps}
+                      href={normalizeMapsUrl(customer.googleMaps, customer.namaCustomer)}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-left text-[#9e9e9e] [font-family:'Inter',Helvetica] font-normal text-xs sm:text-[13px] tracking-[0] leading-[18px] underline break-all hover:text-[#5aa6e8] transition-colors"
@@ -453,7 +464,10 @@ const CustomerDetailModal = ({ isOpen, onClose, customer, attachments, onPreview
           const nameRef = String(att?.stored_filename || att?.original_filename || '').toLowerCase();
           return mime.startsWith('image/') || /\.(jpg|jpeg|png|gif|webp|bmp)$/i.test(nameRef);
         }) : null;
-        const heroUrl = imageAtt ? `${apiUrl}/files/raw/${imageAtt.id}` : (customer?.image ? normalizeUrl(customer.image) : null);
+        const baseRoot = apiUrl.replace(/\/api\/?$/, '');
+        const heroUrl = imageAtt
+          ? (imageAtt?.stored_filename ? `${baseRoot}/uploads/${imageAtt.stored_filename}` : `${apiUrl}/files/raw/${imageAtt.id}`)
+          : (customer?.image ? normalizeUrl(customer.image) : null);
         return (
           <ImageLightbox 
             isOpen={isLightboxOpen} 
@@ -468,16 +482,31 @@ const CustomerDetailModal = ({ isOpen, onClose, customer, attachments, onPreview
 
 // Export Modal Component
 const ExportModal = ({ isOpen, onClose, rows = [] }) => {
+  const [isExporting, setIsExporting] = useState(false)
 
   if (!isOpen) return null;
 
   const handleExportPDF = async () => {
+    setIsExporting(true)
     const apiUrl = (import.meta.env.VITE_API_URL || 'http://localhost:3000/api')
-    const logoSrc = import.meta.env.VITE_COMPANY_LOGO || sefasLogoPng
-    const companyName = (import.meta.env.VITE_COMPANY_NAME || 'PT. SEFAS PELINDOTAMA')
-    const companyAddr = (import.meta.env.VITE_COMPANY_ADDRESS || 'Landasan Ulin Sel., Kec. Liang Anggang, Kota Banjar Baru, Kalimantan Selatan 70722')
-    const companyPhone = (import.meta.env.VITE_COMPANY_PHONE || '05116747319')
-    const companyEmail = (import.meta.env.VITE_COMPANY_EMAIL || '')
+    const baseRoot = apiUrl.replace(/\/api\/?$/, '')
+    const settingsResp = await systemAPI.getSettings().catch(() => null)
+    const settings = settingsResp?.data || {}
+    const envLogo = import.meta.env.VITE_COMPANY_LOGO
+    const headOk = async (u) => { try { const r = await fetch(u, { method: 'HEAD' }); return !!r.ok } catch { return false } }
+    const logoCandidates = [
+      settings.company_logo ? normalizeUrl(settings.company_logo) : null,
+      envLogo ? normalizeUrl(envLogo) : null,
+      normalizeUrl(`${baseRoot}/uploads/sefas-logo.png`),
+      normalizeUrl(`${baseRoot}/uploads/sefas-logo.svg`),
+      appLogoSvg
+    ].filter(Boolean)
+    let logoSrc = appLogoSvg
+    for (const c of logoCandidates) { if (await headOk(c)) { logoSrc = c; break } }
+    const companyName = settings.company_name || (import.meta.env.VITE_COMPANY_NAME || 'PT. SEFAS PELINDOTAMA')
+    const companyAddr = settings.company_address || (import.meta.env.VITE_COMPANY_ADDRESS || 'Landasan Ulin Sel., Kec. Liang Anggang, Kota Banjar Baru, Kalimantan Selatan 70722')
+    const companyPhone = settings.company_phone || (import.meta.env.VITE_COMPANY_PHONE || '05116747319')
+    const companyEmail = settings.company_email || (import.meta.env.VITE_COMPANY_EMAIL || '')
 
     const loadImage = async (src) => {
       if (!src) return null
@@ -524,10 +553,19 @@ const ExportModal = ({ isOpen, onClose, rows = [] }) => {
       } catch { return null }
     }
 
+    const exists = async (u) => { try { const res = await fetch(u, { method: 'HEAD' }); return !!res.ok; } catch { return false } }
+    const selectLink = async (att) => {
+      const baseRoot = apiUrl.replace(/\/api\/?$/, '')
+      const upload = att?.stored_filename ? `${baseRoot}/uploads/${att.stored_filename}` : null
+      const raw = `${apiUrl}/files/raw/${att.id}`
+      if (upload && await exists(upload)) return upload
+      if (await exists(raw)) return raw
+      return null
+    }
     const rowsWithLampiran = await Promise.all((Array.isArray(rows) ? rows : []).map(async (r) => {
       try {
         const resp = await fileAPI.getAll({ customer_id: r.id })
-        const links = Array.isArray(resp?.data) ? resp.data.map(att => `${apiUrl}/files/raw/${att.id}`) : []
+        const links = (await Promise.all((Array.isArray(resp?.data) ? resp.data : []).map(selectLink))).filter(Boolean)
         return { ...r, lampiranLinks: links }
       } catch { return { ...r, lampiranLinks: [] } }
     }))
@@ -552,21 +590,24 @@ const ExportModal = ({ isOpen, onClose, rows = [] }) => {
     }
     doc.setTextColor(35, 35, 35)
     const tx = lx + lw + 8
-    doc.setFontSize(16)
+    doc.setFontSize(14)
     const ny = ly + (lh ? Math.round(lh * 0.55) : 20)
     doc.text(String(companyName), tx + 6, ny)
-    doc.setFontSize(9.5)
-    const contactLine = companyEmail ? `${companyAddr} | ${companyPhone} | ${companyEmail}` : `${companyAddr} | ${companyPhone}`
-    const cy = ny + 5
-    doc.text(contactLine, tx + 6, cy, { maxWidth: pw - (tx + 6) })
-    doc.setFontSize(13)
+    doc.setFontSize(9)
+    const contactY = ny + 5
+    const addrLine = String(companyAddr || '')
+    const phoneEmailLine = companyEmail ? `${companyPhone} | ${companyEmail}` : `${companyPhone}`
+    doc.text(addrLine, tx + 6, contactY, { maxWidth: pw - (tx + 6) })
+    const contactY2 = contactY + 5
+    doc.text(phoneEmailLine, tx + 6, contactY2, { maxWidth: pw - (tx + 6) })
+    doc.setFontSize(12)
     doc.setDrawColor(200)
     doc.setLineWidth(0.6)
     const sepX = lx + lw + 4
     const sepTop = ly
-    const sepBottom = Math.max(cy, ly + lh)
+    const sepBottom = Math.max(contactY2, ly + lh)
     doc.line(sepX, sepTop, sepX, sepBottom)
-    const ty = cy + 14
+    const ty = contactY2 + 14
     doc.text('Laporan Customer', ml, ty)
     doc.setDrawColor(250, 175, 119)
     doc.setLineWidth(0.7)
@@ -608,10 +649,39 @@ const ExportModal = ({ isOpen, onClose, rows = [] }) => {
       startY: tableStartY,
       margin: { left: ml, right: mr, bottom: 26 },
       tableWidth: pw - (ml + mr),
-      styles: { fontSize: 7.6, halign: 'left', valign: 'middle', cellPadding: 1.8, overflow: 'linebreak' },
+      styles: { fontSize: 7.4, halign: 'left', valign: 'middle', cellPadding: 1.6, overflow: 'linebreak', lineHeight: 1.2 },
       headStyles: { fillColor: [250,175,119], textColor: 255, fontSize: 8.2, halign: 'center', valign: 'middle', cellPadding: 1.9 },
       alternateRowStyles: { fillColor: [253, 244, 236] },
-      columnStyles: { 0: { halign: 'left' }, 1: { halign: 'center' }, 2: { halign: 'left' }, 3: { halign: 'left' }, 4: { halign: 'left' } },
+      columnStyles: {
+        0: { halign: 'left',   cellWidth: 40 },
+        1: { halign: 'center', cellWidth: 30 },
+        2: { halign: 'left',   cellWidth: 60 },
+        3: { halign: 'left',   cellWidth: 24 },
+        4: { halign: 'left',   cellWidth: 24, fontSize: 7.2 }
+      },
+      didParseCell: (data) => {
+        if (data.section === 'body' && data.column.index === 4) {
+          data.cell.styles.textColor = [33, 79, 198]
+        }
+      },
+      didDrawCell: (data) => {
+        try {
+          if (data.section === 'body' && data.column.index === 4) {
+            const raw = String(data.cell.raw || '')
+            if (!raw) return
+            const links = raw.split('\n').filter(Boolean)
+            const padX = 1.6
+            const padY = 1.4
+            let y = data.cell.y + padY + 2
+            links.forEach((u) => {
+              const x = data.cell.x + padX
+              const w = doc.getTextWidth(u)
+              doc.link(x, y - 1.5, Math.max(10, w), 4.2, { url: u })
+              y += 3.8
+            })
+          }
+        } catch { void 0 }
+      },
       didDrawPage: (data) => {
         const pw2 = doc.internal.pageSize.getWidth()
         const ph2 = doc.internal.pageSize.getHeight()
@@ -637,9 +707,11 @@ const ExportModal = ({ isOpen, onClose, rows = [] }) => {
     })
     const fn = `Customer_Report.pdf`
     doc.save(fn)
+    setIsExporting(false)
   };
 
   const handleExportExcel = async () => {
+    setIsExporting(true)
     const apiUrl = (import.meta.env.VITE_API_URL || 'http://localhost:3000/api')
     const rowsWithLampiran = await Promise.all((Array.isArray(rows) ? rows : []).map(async (r) => {
       try {
@@ -667,11 +739,23 @@ const ExportModal = ({ isOpen, onClose, rows = [] }) => {
     XLSX.utils.book_append_sheet(wb, ws, 'Customer')
     const fn = `Customer_Report.xlsx`
     XLSX.writeFile(wb, fn)
+    setIsExporting(false)
   };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
-      <div className="bg-white rounded-[17.38px] shadow-[0px_0px_0.91px_#0000000a,0px_1.83px_5.49px_#0000000a,0px_14.63px_21.95px_#0000000f] w-full max-w-[720px] overflow-hidden">
+      {isExporting && (
+        <div className="fixed inset-0 z-[60] bg-black bg-opacity-40 flex items-center justify-center">
+          <div className="bg-white rounded-[12px] px-4 py-3 flex items-center gap-2 shadow">
+            <svg className="animate-spin w-5 h-5 text-[#197bbd]" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+              <path className="opacity-75" d="M4 12a8 8 0 018-8" stroke="currentColor" strokeWidth="4"></path>
+            </svg>
+            <span className="[font-family:'Inter',Helvetica] text-[#404040] text-[13px]">Menyiapkan file…</span>
+          </div>
+        </div>
+      )}
+      <div className="bg-white rounded-[17.38px] shadow-[0px_0px_0.91px_#0000000a,0px_1.83px_5.49px_#0000000a,0px_14.63px_21.95px_#0000000f] w-full max-w-[720px] max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between px-5 sm:px-7 pt-5 pb-4 border-b border-[#e5e5e5]">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-[10px] bg-[#FFF1E6] flex items-center justify-center">
@@ -753,6 +837,7 @@ export const Customer = () => {
   const [searchAlamat, setSearchAlamat] = useState("");
   const [entriesPerPage, setEntriesPerPage] = useState(25);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+  const [avatarError, setAvatarError] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
@@ -848,13 +933,9 @@ export const Customer = () => {
 
   return (
     <div className="bg-[#f5f5f5] w-full min-h-screen flex">
-      {/* Mobile Header - Only visible on mobile */}
+      {/* Header mobile: logo + tombol menu, fixed di atas, khusus perangkat mobile */}
       <div className="lg:hidden fixed top-0 left-0 right-0 bg-white px-4 py-3 flex items-center justify-between shadow-md z-50">
-        <img
-          className="h-8"
-          alt="Logo"
-          src="https://c.animaapp.com/mgrgm0itqrnJXn/img/chatgpt-image-28-sep-2025--18-41-25-1.png"
-        />
+        <img className="h-8 opacity-100" alt="Logo" src={appLogoSvg} />
         <button
           onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
           className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
@@ -869,7 +950,7 @@ export const Customer = () => {
         </button>
       </div>
 
-      {/* Mobile Menu Overlay */}
+      {/* Overlay menu mobile: navigasi utama, settings, logout; tutup saat klik di luar */}
       {isMobileMenuOpen && (
         <div 
           className="lg:hidden fixed inset-0 bg-black bg-opacity-50 z-40"
@@ -880,11 +961,7 @@ export const Customer = () => {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="p-6">
-              <img
-                className="w-24 h-auto mb-8"
-                alt="Logo"
-                src="https://c.animaapp.com/mgrgm0itqrnJXn/img/chatgpt-image-28-sep-2025--18-41-25-1.png"
-              />
+                <img className="w-24 h-auto mb-8 opacity-100" alt="Logo" src={appLogoSvg} />
               
               <div className="flex flex-col gap-2 mb-8">
                 {navItems.map((item) => {
@@ -939,14 +1016,10 @@ export const Customer = () => {
         </div>
       )}
 
-      {/* Desktop Sidebar - Only visible on desktop */}
+      {/* Sidebar desktop: navigasi utama dengan layout sticky, hanya tampil di desktop */}
       <aside className="hidden lg:flex w-[200px] flex-shrink-0 bg-white shadow-[2px_24px_53px_#0000000d,8px_95px_96px_#0000000a,19px_214px_129px_#00000008,33px_381px_153px_#00000003,52px_596px_167px_transparent] px-[15px] py-[30px] flex-col justify-between h-screen sticky top-0">
         <div>
-          <img
-            className="w-[100px] h-[41px] mb-[45px]"
-            alt="Logo"
-            src="https://c.animaapp.com/mgrgm0itqrnJXn/img/chatgpt-image-28-sep-2025--18-41-25-1.png"
-          />
+          <img className="w-[100px] h-[41px] mb-[45px] opacity-100" alt="Logo" src={appLogoSvg} />
           
           <div className="flex flex-col gap-3">
             {navItems.map((item) => {
@@ -1011,11 +1084,13 @@ export const Customer = () => {
                   {user?.name || 'User'}
                 </span>
                 <div className="w-8 h-8 rounded-full overflow-hidden">
-                  <img
-                     src={normalizeUrl(user?.profile_image) || "https://c.animaapp.com/mgrgm0itqrnJXn/img/profile.png"}
-                     alt={user?.name || 'User'}
-                    className="w-full h-full object-cover"
-                  />
+                  {user?.profile_image && !avatarError ? (
+                    <img src={normalizeUrl(user?.profile_image)} alt={user?.name || 'User'} className="w-full h-full object-cover" onError={() => setAvatarError(true)} />
+                  ) : (
+                    <div className="w-full h-full bg-[#e0e0e0] flex items-center justify-center text-[#404040] text-[11px] [font-family:'Suprema-SemiBold',Helvetica]">
+                      {(user?.name || 'U').slice(0,1)}
+                    </div>
+                  )}
                 </div>
               </button>
 
@@ -1182,7 +1257,7 @@ export const Customer = () => {
                             </td>
                             <td className="[font-family:'Suprema-Regular',Helvetica] font-normal text-[#c7c7c7] text-[12.8px] tracking-[0] leading-[normal] py-3 align-top">
                               <a 
-                                href={row.googleMaps} 
+                                href={normalizeMapsUrl(row.googleMaps, row.namaCustomer)} 
                                 target="_blank" 
                                 rel="noopener noreferrer"
                                 className="underline hover:text-[#5aa6e8] transition-colors inline-block"
@@ -1225,7 +1300,7 @@ export const Customer = () => {
                             </p>
                           </div>
                           <a 
-                            href={row.googleMaps} 
+                            href={normalizeMapsUrl(row.googleMaps, row.namaCustomer)} 
                             target="_blank" 
                             rel="noopener noreferrer"
                             onClick={(e) => e.stopPropagation()}
@@ -1332,7 +1407,7 @@ export const Customer = () => {
         }}
       />
 
-      <style jsx>{`
+      <style>{`
         @keyframes fade-in {
           from {
             opacity: 0;
@@ -1361,4 +1436,4 @@ export const Customer = () => {
 };
 
 export default Customer;
-import usersIcon from '../assets/users.svg';
+

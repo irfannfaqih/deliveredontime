@@ -168,6 +168,11 @@ export const ensureSchema = async () => {
   if (!settingsCount[0] || !settingsCount[0].c) {
     await safe(() => query('INSERT INTO settings (fuel_price, km_per_liter) VALUES (10000, 35)'))
   }
+  await safe(() => query('ALTER TABLE settings ADD COLUMN IF NOT EXISTS company_name VARCHAR(255) NULL'))
+  await safe(() => query('ALTER TABLE settings ADD COLUMN IF NOT EXISTS company_address VARCHAR(500) NULL'))
+  await safe(() => query('ALTER TABLE settings ADD COLUMN IF NOT EXISTS company_phone VARCHAR(100) NULL'))
+  await safe(() => query('ALTER TABLE settings ADD COLUMN IF NOT EXISTS company_email VARCHAR(255) NULL'))
+  await safe(() => query('ALTER TABLE settings ADD COLUMN IF NOT EXISTS company_logo VARCHAR(500) NULL'))
   const hasCustView = await query('SELECT COUNT(*) as c FROM INFORMATION_SCHEMA.VIEWS WHERE TABLE_SCHEMA=? AND TABLE_NAME="frontend_customer_data"',[process.env.DB_NAME])
   if (!hasCustView[0] || !hasCustView[0].c) {
     await safe(() => query('CREATE VIEW frontend_customer_data AS SELECT nama_customer AS namaCustomer, no_hp AS noHp, alamat, google_maps AS googleMaps, image FROM customers ORDER BY nama_customer'))

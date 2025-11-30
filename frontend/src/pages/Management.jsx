@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import appLogoSvg from '../assets/logo.svg';
 import searchIcon from '../assets/searchIcon.svg';
 import settingsIcon from '../assets/settingIcon.svg';
 import usersIcon from '../assets/users.svg';
@@ -42,6 +43,7 @@ export const Management = () => {
   const [editForm, setEditForm] = useState({ name: '', email: '', role: 'messenger', phone: '', is_active: 1, password: '' });
   const [showEditPassword, setShowEditPassword] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+  const [avatarError, setAvatarError] = useState(false);
 
   const filteredUsers = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -52,7 +54,7 @@ export const Management = () => {
     });
   }, [users, searchQuery, roleFilter]);
 
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
     if (user?.role !== 'admin') return;
     setLoadingUsers(true);
     try {
@@ -74,9 +76,9 @@ export const Management = () => {
     } finally {
       setLoadingUsers(false);
     }
-  };
+  }, [user]);
 
-  useEffect(() => { fetchUsers(); }, [user]);
+  useEffect(() => { fetchUsers(); }, [fetchUsers]);
 
   useEffect(() => {
     const onFocus = () => { fetchUsers(); };
@@ -87,7 +89,7 @@ export const Management = () => {
       window.removeEventListener('focus', onFocus);
       document.removeEventListener('visibilitychange', onVisibility);
     };
-  }, [user]);
+  }, [fetchUsers]);
 
   
 
@@ -162,8 +164,9 @@ export const Management = () => {
 
   return (
     <div className="bg-[#f5f5f5] w-full min-h-screen flex">
+      {/* Header mobile: logo + tombol menu, fixed di atas, khusus perangkat mobile */}
       <div className="lg:hidden fixed top-0 left-0 right-0 bg-white px-4 py-3 flex items-center justify-between shadow-md z-50">
-        <img className="h-8" alt="Logo" src="https://c.animaapp.com/mgrgm0itqrnJXn/img/chatgpt-image-28-sep-2025--18-41-25-1.png" />
+        <img className="h-8 opacity-100" alt="Logo" src={appLogoSvg} />
         <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
           <svg className="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             {isMobileMenuOpen ? (
@@ -175,11 +178,12 @@ export const Management = () => {
         </button>
       </div>
 
+      {/* Overlay menu mobile: navigasi utama, settings, logout; tutup saat klik di luar */}
       {isMobileMenuOpen && (
         <div className="lg:hidden fixed inset-0 bg-black bg-opacity-50 z-40" onClick={() => setIsMobileMenuOpen(false)}>
           <div className="bg-white w-64 h-full shadow-xl" onClick={(e) => e.stopPropagation()}>
             <div className="p-6">
-              <img className="w-24 h-auto mb-8" alt="Logo" src="https://c.animaapp.com/mgrgm0itqrnJXn/img/chatgpt-image-28-sep-2025--18-41-25-1.png" />
+              <img className="w-24 h-auto mb-8 opacity-100" alt="Logo" src={appLogoSvg} />
               <div className="flex flex-col gap-2 mb-8">
                 {navItems.map((item) => {
                   const ItemWrapper = item.href !== "#" ? Link : "button";
@@ -205,9 +209,10 @@ export const Management = () => {
         </div>
       )}
 
+      {/* Sidebar desktop: navigasi utama dengan layout sticky, hanya tampil di desktop */}
       <aside className="hidden lg:flex w-[200px] flex-shrink-0 bg-white shadow-[2px_24px_53px_#0000000d,8px_95px_96px_#0000000a,19px_214px_129px_#00000008,33px_381px_153px_#00000003,52px_596px_167px_transparent] px-[15px] py-[30px] flex-col justify-between h-screen sticky top-0">
         <div>
-          <img className="w-[100px] h-[41px] mb-[45px]" alt="Logo" src="https://c.animaapp.com/mgrgm0itqrnJXn/img/chatgpt-image-28-sep-2025--18-41-25-1.png" />
+          <img className="w-[100px] h-[41px] mb-[45px] opacity-100" alt="Logo" src={appLogoSvg} />
           <div className="flex flex-col gap-3">
             {navItems.map((item) => {
               const ItemWrapper = item.href !== "#" ? Link : "button";
@@ -237,7 +242,13 @@ export const Management = () => {
               <button onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)} className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity">
                 <span className="[font-family:'Suprema-SemiBold',Helvetica] font-semibold text-[#404040] text-[12.8px]">{user?.name || 'User'}</span>
                 <div className="w-8 h-8 rounded-full overflow-hidden">
-                  <img src={normalizeUrl(user?.profile_image) || "https://c.animaapp.com/mgrgm0itqrnJXn/img/profile.png"} alt={user?.name || 'User'} className="w-full h-full object-cover" />
+                  {user?.profile_image && !avatarError ? (
+                    <img src={normalizeUrl(user?.profile_image)} alt={user?.name || 'User'} className="w-full h-full object-cover" onError={() => setAvatarError(true)} />
+                  ) : (
+                    <div className="w-full h-full bg-[#e0e0e0] flex items-center justify-center text-[#404040] text-[11px] [font-family:'Suprema-SemiBold',Helvetica]">
+                      {(user?.name || 'U').slice(0,1)}
+                    </div>
+                  )}
                 </div>
               </button>
               {isProfileMenuOpen && (
@@ -266,7 +277,7 @@ export const Management = () => {
             </Link>
           </div>
 
-            <div className="bg-white rounded-[17.38px] shadow-[0px_0px_0.91px_#0000000a,0px_1.83px_5.49px_#0000000a,0px_14.63px_21.95px_#0000000f] p-4 sm:p-6 mt-6">
+            <div className="bg-white rounded-[17.38px] shadow-[0px_0px_0.91px_#0000000a,0px_1.83px_5.49px_#0000000a,0px_14.63px_21.95px_#0000000f] p-4 sm:p-6 mt-6 translate-y-[-1rem] animate-fade-in opacity-0 [--animation-delay:300ms]">
             <div className="flex items-center justify-between mb-4 sm:mb-6">
               <h2 className="[font-family:'Suprema-SemiBold',Helvetica] font-semibold text-black text-base sm:text-[18px]">Users List</h2>
             </div>
@@ -437,6 +448,13 @@ export const Management = () => {
           </div>
         )}
       </main>
+      <style>{`
+        @keyframes fade-in {
+          from { opacity: 0; transform: translateY(-1rem); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-in { animation: fade-in 0.6s ease-out forwards; animation-delay: var(--animation-delay, 0ms); }
+      `}</style>
     </div>
   );
 };

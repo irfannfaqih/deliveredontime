@@ -1,9 +1,10 @@
-import { useRef, useState, useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import appLogoSvg from '../assets/logo.svg';
 import settingsIcon from '../assets/settingIcon.svg';
-import { useAuth, useDeliveries } from "../hooks/useAPI";
-import { fileAPI, authAPI, deliveredAPI } from "../services/api";
 import usersIcon from '../assets/users.svg';
+import { useAuth, useDeliveries } from "../hooks/useAPI";
+import { authAPI, deliveredAPI, fileAPI } from "../services/api";
 
 const navigationItems = [
   {
@@ -224,6 +225,7 @@ const DeliveredInput = () => {
       deliveredDate: formData["tanggal-terima"],
       messenger: formData["messenger"],
       recipient: formData["nama-penerima"] || null,
+      notes: formData["keterangan"] || '',
       status: computeStatus(formData["tanggal-dikirim"], formData["tanggal-terima"]),
     };
     const res = await createDelivery(payload);
@@ -242,13 +244,9 @@ const DeliveredInput = () => {
 
   return (
     <div className="bg-[#f5f5f5] w-full min-h-screen flex">
-      {/* Mobile Header - Only visible on mobile */}
+      {/* Header mobile: logo + tombol menu, fixed di atas, khusus perangkat mobile */}
       <div className="lg:hidden fixed top-0 left-0 right-0 bg-white px-4 py-3 flex items-center justify-between shadow-md z-50">
-        <img
-          className="h-8"
-          alt="Logo"
-          src="https://c.animaapp.com/mgrgm0itqrnJXn/img/chatgpt-image-28-sep-2025--18-41-25-1.png"
-        />
+        <img className="h-8 opacity-100" alt="Logo" src={appLogoSvg} />
         <button
           onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
           className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
@@ -263,7 +261,7 @@ const DeliveredInput = () => {
         </button>
       </div>
 
-      {/* Mobile Menu Overlay */}
+      {/* Overlay menu mobile: navigasi utama, settings, logout; tutup saat klik di luar */}
       {isMobileMenuOpen && (
         <div 
           className="lg:hidden fixed inset-0 bg-black bg-opacity-50 z-40"
@@ -274,11 +272,7 @@ const DeliveredInput = () => {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="p-6">
-              <img
-                className="w-24 h-auto mb-8"
-                alt="Logo"
-                src="https://c.animaapp.com/mgrgm0itqrnJXn/img/chatgpt-image-28-sep-2025--18-41-25-1.png"
-              />
+              <img className="w-24 h-auto mb-8 opacity-100" alt="Logo" src={appLogoSvg} />
               
               <div className="flex flex-col gap-2 mb-8">
                 {navItems.map((item) => {
@@ -333,14 +327,10 @@ const DeliveredInput = () => {
         </div>
       )}
 
-      {/* Desktop Sidebar - Only visible on desktop */}
+      {/* Sidebar desktop: navigasi utama dengan layout sticky, hanya tampil di desktop */}
       <aside className="hidden lg:flex w-[200px] flex-shrink-0 bg-white shadow-[2px_24px_53px_#0000000d,8px_95px_96px_#0000000a,19px_214px_129px_#00000008,33px_381px_153px_#00000003,52px_596px_167px_transparent] px-[15px] py-[30px] flex-col justify-between h-screen sticky top-0">
         <div>
-          <img
-            className="w-[100px] h-[41px] mb-[45px]"
-            alt="Logo"
-            src="https://c.animaapp.com/mgrgm0itqrnJXn/img/chatgpt-image-28-sep-2025--18-41-25-1.png"
-          />
+          <img className="w-[100px] h-[41px] mb-[45px] opacity-100" alt="Logo" src={appLogoSvg} />
           
           <div className="flex flex-col gap-3">
             {navItems.map((item) => {
@@ -437,7 +427,7 @@ const DeliveredInput = () => {
                         type="date"
                         value={formData[field.id] || ""}
                         onChange={(e) => handleInputChange(field.id, e.target.value)}
-                        className={`w-full pl-10 sm:pl-[44px] pr-3 sm:pr-4 py-3 sm:py-[17.1px] bg-white rounded-[10.26px] border-[0.85px] ${errors[field.id] ? 'border-red-500' : 'border-[#cccccccc]'} [font-family:'Inter',Helvetica] font-medium text-black text-xs sm:text-[10.3px] outline-none focus:border-[#197bbd] transition-colors [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:right-3 [&::-webkit-calendar-picker-indicator]:opacity-50`}
+                        className={`w-full pl-10 sm:pl-[44px] pr-3 sm:pr-4 py-3 sm:py-[17.1px] bg-white rounded-[10.26px] border-[0.85px] ${errors[field.id] ? 'border-red-500' : 'border-[#cccccccc]'} [font-family:'Inter',Helvetica] font-medium text-black text-[10.3px] outline-none focus:border-[#197bbd] transition-colors [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:right-3 [&::-webkit-calendar-picker-indicator]:opacity-50`}
                       />
                     </div>
                   ) : (
@@ -650,7 +640,7 @@ const DeliveredInput = () => {
         </div>
       )}
 
-      <style jsx>{`
+      <style>{`
         @keyframes fade-in {
           from {
             opacity: 0;
@@ -672,3 +662,4 @@ const DeliveredInput = () => {
 };
 
 export default DeliveredInput;
+

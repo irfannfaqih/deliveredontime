@@ -1,12 +1,12 @@
 // frontend/src/hooks/useAPI.js
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  authAPI,
-  bbmAPI,
-  customerAPI,
-  deliveredAPI,
-  fileAPI,
-  handleApiError
+    authAPI,
+    bbmAPI,
+    customerAPI,
+    deliveredAPI,
+    fileAPI,
+    handleApiError
 } from '../services/api';
 
 // ============================================
@@ -24,17 +24,17 @@ export const useAuth = () => {
 
   const checkAuthStatus = async () => {
     try {
-      const storedUser = localStorage.getItem('user');
-      if (storedUser) {
-        const userData = JSON.parse(storedUser);
-        setUser(userData);
-        
-        const response = await authAPI.getProfile();
+      const storedUserRaw = localStorage.getItem('user');
+      if (storedUserRaw) {
+        const storedUser = JSON.parse(storedUserRaw);
+        let nextUser = storedUser;
+        const response = await authAPI.getProfile().catch(() => null);
         const profile = response?.data;
         if (profile) {
-          setUser(profile.user ? profile.user : profile);
-          localStorage.setItem('user', JSON.stringify(profile.user ? profile.user : profile));
+          nextUser = profile.user ? profile.user : profile;
+          localStorage.setItem('user', JSON.stringify(nextUser));
         }
+        setUser(nextUser);
       }
     } catch (error) {
       console.error('Auth check failed:', error);
@@ -45,7 +45,7 @@ export const useAuth = () => {
     }
   };
 
-  // ✅ PERBAIKAN DI SINI
+  // Melakukan autentikasi dan mengelola state user saat berhasil/gagal
   const login = async (email, password) => {
     try {
       setIsLoading(true);
@@ -54,19 +54,19 @@ export const useAuth = () => {
       const response = await authAPI.login(email, password);
       const data = response?.data;
       
-      // ✅ CEK JIKA LOGIN BERHASIL
+      // Jika API mengembalikan user, anggap autentikasi berhasil
       if (data?.user) {
         setUser(data.user);
         return { success: true, user: data.user };
       }
       
-      // ✅ JIKA TIDAK ADA USER, RETURN GAGAL (JANGAN THROW ERROR)
+      // Jika autentikasi gagal, kembalikan pesan error tanpa melempar exception
       const errorMessage = 'Username atau password salah';
       setError(errorMessage);
       return { success: false, error: errorMessage };
       
     } catch (error) {
-      // ✅ TANGANI ERROR DARI API
+      // Tangani error dari API dan konversi ke pesan yang bisa ditampilkan
       console.error('Login error caught:', error);
       const errorMessage = handleApiError(error);
       setError(errorMessage);
@@ -124,26 +124,30 @@ export const useAPIData = (apiFunction) => {
   const [data, setData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+  const fnRef = useRef(apiFunction);
 
-  const fetchData = async () => {
+  useEffect(() => {
+    fnRef.current = apiFunction;
+  }, [apiFunction]);
+
+  const fetchData = useCallback(async () => {
     try {
       setIsLoading(true);
       setError(null);
-      
-      const response = await apiFunction();
-      const data = response?.data ?? response;
-      setData(data);
-    } catch (error) {
-      const errorMessage = handleApiError(error);
+      const response = await fnRef.current();
+      const next = response?.data ?? response;
+      setData(next);
+    } catch (err) {
+      const errorMessage = handleApiError(err);
       setError(errorMessage);
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [fetchData]);
 
   const refetch = () => {
     fetchData();
@@ -165,13 +169,19 @@ export const useCustomers = (filters = {}) => {
   const [customers, setCustomers] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+  const filtersRef = useRef(filters);
+  const depKey = JSON.stringify(filters);
+
+  useEffect(() => {
+    filtersRef.current = filters;
+  }, [filters]);
 
   const fetchCustomers = useCallback(async () => {
     try {
       setIsLoading(true);
       setError(null);
       
-      const response = await customerAPI.getAll(filters);
+      const response = await customerAPI.getAll(filtersRef.current);
       const data = response?.data ?? response;
       setCustomers(data.data || data.customers || data);
     } catch (error) {
@@ -180,11 +190,11 @@ export const useCustomers = (filters = {}) => {
     } finally {
       setIsLoading(false);
     }
-  }, [JSON.stringify(filters)]);
+  }, []);
 
   useEffect(() => {
     fetchCustomers();
-  }, [fetchCustomers]);
+  }, [depKey, fetchCustomers]);
 
   const createCustomer = async (customerData) => {
     try {
@@ -238,13 +248,19 @@ export const useDeliveries = (filters = {}) => {
   const [deliveries, setDeliveries] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+  const filtersRef = useRef(filters);
+  const depKey = JSON.stringify(filters);
+
+  useEffect(() => {
+    filtersRef.current = filters;
+  }, [filters]);
 
   const fetchDeliveries = useCallback(async () => {
     try {
       setIsLoading(true);
       setError(null);
       
-      const response = await deliveredAPI.getAll(filters);
+      const response = await deliveredAPI.getAll(filtersRef.current);
       const data = response?.data ?? response;
       setDeliveries(data.data || data.deliveries || data);
     } catch (error) {
@@ -253,11 +269,11 @@ export const useDeliveries = (filters = {}) => {
     } finally {
       setIsLoading(false);
     }
-  }, [JSON.stringify(filters)]);
+  }, []);
 
   useEffect(() => {
     fetchDeliveries();
-  }, [fetchDeliveries]);
+  }, [depKey, fetchDeliveries]);
 
   const createDelivery = async (deliveryData) => {
     try {
@@ -311,13 +327,19 @@ export const useBBM = (filters = {}) => {
   const [bbmRecords, setBbmRecords] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+  const filtersRef = useRef(filters);
+  const depKey = JSON.stringify(filters);
+
+  useEffect(() => {
+    filtersRef.current = filters;
+  }, [filters]);
 
   const fetchBBMRecords = useCallback(async () => {
     try {
       setIsLoading(true);
       setError(null);
       
-      const response = await bbmAPI.getAll(filters);
+      const response = await bbmAPI.getAll(filtersRef.current);
       const data = response?.data ?? response;
       setBbmRecords(data.data || data.bbmRecords || data);
     } catch (error) {
@@ -326,11 +348,11 @@ export const useBBM = (filters = {}) => {
     } finally {
       setIsLoading(false);
     }
-  }, [JSON.stringify(filters)]);
+  }, []);
 
   useEffect(() => {
     fetchBBMRecords();
-  }, [fetchBBMRecords]);
+  }, [depKey, fetchBBMRecords]);
 
   const createBBMRecord = async (bbmData) => {
     try {

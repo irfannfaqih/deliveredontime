@@ -1,6 +1,6 @@
 import http from 'http'
-import app from './server.js'
 import { ensureSchema } from './db/mysql.js'
+import app from './server.js'
 
 const start = async () => {
   await ensureSchema()

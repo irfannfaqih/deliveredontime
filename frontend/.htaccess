@@ -1,0 +1,31 @@
+# ----------------------------------------
+# ENABLE MOD_REWRITE
+# ----------------------------------------
+RewriteEngine On
+RewriteBase /
+
+# ----------------------------------------
+# ALLOW DIRECT ACCESS TO REAL FILES & FOLDERS
+# ----------------------------------------
+RewriteCond %{REQUEST_FILENAME} -f [OR]
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
+
+# ----------------------------------------
+# REDIRECT ALL FRONTEND ROUTES TO index.html
+# (SPA mode – to fix 404 on refresh / deep link)
+# ----------------------------------------
+RewriteRule ^ index.html [L]
+
+# ----------------------------------------
+# OPTIONAL (better SEO & security)
+# Remove trailing slash
+# ----------------------------------------
+RewriteCond %{REQUEST_URI} .+/$
+RewriteRule ^(.+)/$ /$1 [R=301,L]
+
+# ----------------------------------------
+# OPTIONAL — force https (jika domain sudah siap HTTPS)
+# ----------------------------------------
+RewriteCond %{HTTPS} off
+RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]

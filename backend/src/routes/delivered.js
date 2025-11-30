@@ -1,7 +1,7 @@
 import { Router } from 'express'
-import { requireAuth } from '../middleware/auth.js'
 import { query } from '../db/mysql.js'
 import { mapDeliveryRow } from '../lib/case.js'
+import { requireAuth } from '../middleware/auth.js'
 
 const router = Router()
 
@@ -20,11 +20,30 @@ const computeStatus = (sentDate, deliveredDate) => {
 
 router.get('/', requireAuth, async (req, res) => {
   try {
-    const { date } = req.query || {}
-    const rows = date
-      ? await query('SELECT * FROM deliveries WHERE sent_date = ? ORDER BY id DESC', [date])
-      : await query('SELECT * FROM deliveries ORDER BY id DESC')
+    const { date, messenger } = req.query || {}
+    let sql = 'SELECT * FROM deliveries'
+    const params = []
+    const clauses = []
+
+    if (date) { clauses.push('sent_date = ?'); params.push(date) }
+    if (messenger) { clauses.push('LOWER(messenger) = LOWER(?)'); params.push(messenger) }
+
+    if (clauses.length) sql += ' WHERE ' + clauses.join(' AND ')
+    sql += ' ORDER BY id DESC'
+
+    const rows = await query(sql, params)
     res.json({ data: rows.map(mapDeliveryRow) })
+  } catch (e) {
+    res.status(500).json({ error: String(e.message || e) })
+  }
+})
+
+// Place stats route BEFORE parameterized /:id to avoid shadowing
+router.get('/stats', requireAuth, async (req, res) => {
+  try {
+    const totalRows = await query('SELECT COUNT(*) as c FROM deliveries')
+    const onRows = await query("SELECT COUNT(*) as c FROM deliveries WHERE LOWER(status) LIKE 'on time%'")
+    res.json({ data: { total: totalRows[0].c, ontime: onRows[0].c } })
   } catch (e) {
     res.status(500).json({ error: String(e.message || e) })
   }
@@ -78,14 +97,5 @@ router.delete('/:id', requireAuth, async (req, res) => {
   }
 })
 
-router.get('/stats', requireAuth, async (req, res) => {
-  try {
-    const totalRows = await query('SELECT COUNT(*) as c FROM deliveries')
-    const onRows = await query("SELECT COUNT(*) as c FROM deliveries WHERE LOWER(status) LIKE 'on time%'")
-    res.json({ data: { total: totalRows[0].c, ontime: onRows[0].c } })
-  } catch (e) {
-    res.status(500).json({ error: String(e.message || e) })
-  }
-})
 
 export default router

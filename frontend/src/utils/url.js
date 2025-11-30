@@ -19,3 +19,15 @@ export const normalizeUrl = (url) => {
   // Otherwise return as is
   return str;
 };
+
+export const normalizeMapsUrl = (raw, name) => {
+  const src = String(raw || '').trim();
+  if (!src.length) return '';
+  const idx = src.toLowerCase().indexOf('http');
+  if (idx >= 0) {
+    const candidate = src.slice(idx).trim();
+    if (/^https?:\/\//i.test(candidate)) return candidate;
+  }
+  const q = encodeURIComponent(String(name || src));
+  return `https://www.google.com/maps/search/?api=1&query=${q}`;
+};

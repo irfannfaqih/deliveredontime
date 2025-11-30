@@ -144,17 +144,11 @@ export const Login = () => {
     return Object.keys(errors).length === 0;
   };
 
-  // ✅ HANDLE LOGIN TANPA FORM SUBMIT
+  // Menangani proses login ketika tombol ditekan (bukan submit form)
   const handleLogin = async () => {
-    console.log('🔵 Login button clicked');
-    
     if (!validateForm()) {
-      console.log('❌ Validation failed');
       return;
     }
-    
-    console.log('✅ Validation passed');
-    
     // Reset error sebelum login
     setLoginError('');
     
@@ -163,13 +157,8 @@ export const Login = () => {
       const emailOrUsername = formData.username.includes('@') 
         ? formData.username 
         : `${formData.username}@delivered.com`;
-      
-      console.log('📤 Calling login API...');
       const result = await login(emailOrUsername, formData.password);
-      console.log('📥 Login result:', result);
-      
       if (result?.success) {
-        console.log('✅ Login SUCCESS');
         setShowSuccess(true);
         setLoginError('');
         
@@ -177,15 +166,12 @@ export const Login = () => {
           navigate('/dashboard');
         }, 1000);
       } else {
-        console.log('❌ Login FAILED');
-        // LOGIN GAGAL - TAMPILKAN ERROR
+        // Autentikasi gagal: tampilkan pesan kesalahan dan animasi feedback
         setLoginError('Username atau password yang Anda masukkan salah');
         setShakeEffect(true);
-        
         setTimeout(() => setShakeEffect(false), 600);
       }
-    } catch (err) {
-      console.error('⚠️ Login exception:', err);
+    } catch {
       setLoginError('Terjadi kesalahan. Silakan coba lagi.');
       setShakeEffect(true);
       
@@ -219,15 +205,16 @@ export const Login = () => {
 
       {/* Logo */}
       <img
-        className="absolute top-6 left-1/2 -translate-x-1/2 w-20 h-9 sm:top-6 sm:w-28 sm:h-12 lg:left-8 lg:translate-x-0 z-10"
+        className="absolute top-6 left-1/2 -translate-x-1/2 w-20 h-9 sm:top-6 sm:w-28 sm:h-12 lg:left-8 lg:translate-x-0 z-10 opacity-100"
         alt="Delivered Ontime Logo"
         src={logo}
+        style={{ filter: 'brightness(0) invert(1)' }}
       />
 
       {/* Card */}
-      <div className="flex flex-col items-center gap-4 z-10 w-full max-w-lg sm:max-w-xl md:max-w-2xl px-4 translate-y-[-1rem] animate-fade-in opacity-0 [--animation-delay:200ms]">
+      <div className="flex flex-col items-center gap-4 z-10 w-full max-w-lg sm:max-w-xl md:max-w-2xl px-4">
         <Card className={cn(
-          "w-full bg-white rounded-2xl shadow-[11px_9px_31px_#0000000d,43px_36px_56px_#0000000a,97px_81px_76px_#00000008,172px_144px_90px_#00000003,268px_225px_98px_transparent] translate-y-[-1rem] animate-fade-in opacity-0 [--animation-delay:400ms]",
+          "w-full bg-white rounded-2xl shadow-[11px_9px_31px_#0000000d,43px_36px_56px_#0000000a,97px_81px_76px_#00000008,172px_144px_90px_#00000003,268px_225px_98px_transparent]",
           shakeEffect && "animate-shake"
         )}>
           <CardContent className="flex flex-col items-center py-8 sm:py-12 px-4 sm:px-8 md:px-12">
@@ -241,7 +228,7 @@ export const Login = () => {
               </p>
             </header>
 
-            {/* SUCCESS MESSAGE */}
+            {/* Notifikasi berhasil login: tampil singkat lalu redirect ke dashboard */}
             {showSuccess && (
               <div className="w-full sm:max-w-[380px] mb-4 p-3 bg-green-50 border border-green-200 rounded-lg animate-fade-in">
                 <p className="text-sm text-green-700 text-center font-medium flex items-center justify-center gap-2">
@@ -253,7 +240,7 @@ export const Login = () => {
               </div>
             )}
 
-            {/* ERROR MESSAGE */}
+            {/* Notifikasi kesalahan autentikasi: muncul saat username/password tidak valid */}
             {loginError && !showSuccess && (
               <div className="w-full sm:max-w-[380px] mb-4 p-3 bg-red-50 border border-red-300 rounded-lg animate-fade-in">
                 <p className="text-sm text-red-700 text-center font-medium flex items-center justify-center gap-2">
@@ -417,7 +404,7 @@ export const Login = () => {
         © 2025 Delivered Ontime. Fast • Reliable • Ontime
       </footer>
 
-      {/* CSS UNTUK ANIMASI */}
+      {/* Animasi halaman: keyframes shake untuk feedback error, fade-in untuk transisi */}
       <style>{`
         @keyframes shake {
           0%, 100% { transform: translateX(0); }

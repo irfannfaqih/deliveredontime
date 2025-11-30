@@ -1,15 +1,15 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import containerBg from "../assets/container.svg";
+import appLogoSvg from '../assets/logo.svg';
 import iconOntime from "../assets/ontime.svg";
 import iconOntimePlane from "../assets/ontimePlane.svg";
 import iconOuttime from "../assets/outtime.svg";
 import searchIcon from "../assets/searchIcon.svg";
 import settingsIcon from '../assets/settingIcon.svg';
-import usersIcon from '../assets/users.svg';
 import iconTotal from "../assets/total.svg";
-import { useAPIData, useAuth, useDeliveries } from "../hooks/useAPI";
-import { deliveredAPI } from "../services/api";
+import usersIcon from '../assets/users.svg';
+import { useAuth, useDeliveries } from "../hooks/useAPI";
 import { normalizeUrl } from '../utils/url';
 
 const navigationItems = [
@@ -61,9 +61,9 @@ const formatDateID = (d) => {
 
 export const Dashboard = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [avatarError, setAvatarError] = useState(false);
   const { deliveries } = useDeliveries();
-  const { data: statsResp } = useAPIData(() => deliveredAPI.getStats());
-  const stats = statsResp?.data ?? statsResp;
+  const stats = undefined;
   const { user, logout } = useAuth();
 
   const navItems = useMemo(() => {
@@ -108,13 +108,9 @@ export const Dashboard = () => {
 
   return (
     <div className="bg-[#f5f5f5] w-full min-h-screen flex">
-      {/* Mobile Header - Tetap sama seperti halaman lain */}
+      {/* Header mobile: logo + tombol menu, fixed di atas, hanya tampil di mobile */}
       <div className="lg:hidden fixed top-0 left-0 right-0 bg-white px-4 py-3 flex items-center justify-between shadow-md z-50">
-        <img
-          className="h-8"
-          alt="Logo"
-          src="https://c.animaapp.com/mgrgm0itqrnJXn/img/chatgpt-image-28-sep-2025--18-41-25-1.png"
-        />
+        <img className="h-8 opacity-100" alt="Logo" src={appLogoSvg} />
         <button
           onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
           className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
@@ -129,7 +125,7 @@ export const Dashboard = () => {
         </button>
       </div>
 
-      {/* Mobile Menu Overlay - Tetap sama seperti halaman lain */}
+      {/* Overlay menu mobile: navigasi utama, settings, logout; tutup saat klik luar */}
       {isMobileMenuOpen && (
         <div 
           className="lg:hidden fixed inset-0 bg-black bg-opacity-50 z-40"
@@ -140,11 +136,7 @@ export const Dashboard = () => {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="p-6">
-              <img
-                className="w-24 h-auto mb-8"
-                alt="Logo"
-                src="https://c.animaapp.com/mgrgm0itqrnJXn/img/chatgpt-image-28-sep-2025--18-41-25-1.png"
-              />
+              <img className="w-24 h-auto mb-8 opacity-100" alt="Logo" src={appLogoSvg} />
               
               <div className="flex flex-col gap-2 mb-8">
                 {navItems.map((item) => {
@@ -199,14 +191,10 @@ export const Dashboard = () => {
         </div>
       )}
 
-      {/* Desktop Sidebar - Tidak berubah sama sekali */}
+      {/* Sidebar desktop: navigasi utama dengan sticky layout, hanya tampil di desktop */}
       <aside className="hidden lg:flex w-[200px] flex-shrink-0 bg-white shadow-[2px_24px_53px_#0000000d,8px_95px_96px_#0000000a,19px_214px_129px_#00000008,33px_381px_153px_#00000003,52px_596px_167px_transparent] px-[15px] py-[30px] flex-col justify-between h-screen sticky top-0">
         <div>
-          <img
-            className="w-[100px] h-[41px] mb-[45px]"
-            alt="Logo"
-            src="https://c.animaapp.com/mgrgm0itqrnJXn/img/chatgpt-image-28-sep-2025--18-41-25-1.png"
-          />
+          <img className="w-[100px] h-[41px] mb-[45px] opacity-100" alt="Logo" src={appLogoSvg} />
           
           <div className="flex flex-col gap-3">
             {navItems.map((item) => {
@@ -293,7 +281,7 @@ export const Dashboard = () => {
                   key={index}
                   className="flex-1 lg:w-[120px] bg-white rounded-[20px] sm:rounded-[24px] lg:rounded-[20px] shadow-lg sm:shadow-xl lg:shadow-[0px_0px_0.83px_#0000000a,0px_1.65px_4.96px_#0000000a,0px_13.22px_19.84px_#0000000f] flex flex-col items-start gap-3 sm:gap-4 lg:gap-2 px-5 sm:px-6 lg:px-4 py-5 sm:py-6 lg:py-3 h-[130px] sm:h-[150px] lg:h-[120px] relative hover:shadow-xl sm:hover:shadow-2xl lg:hover:shadow-lg hover:scale-[1.02] lg:hover:scale-100 transition-all duration-300 border border-[#f0f0f0]"
                 >
-                  <div className="font-[Suprema-Regular] font-normal text-[#696969] text-2xl sm:text-3xl lg:text-[18px] font-bold -mt-[2px] sm:-mt-[2px] lg:-mt-[1px]">
+                  <div className="font-[Suprema-Regular] text-[#696969] text-2xl sm:text-3xl lg:text-[18px] font-bold -mt-[2px] sm:-mt-[2px] lg:-mt-[1px]">
                     {item.value}
                   </div>
                   <div className="absolute top-[47px] sm:top-[57px] lg:top-[34px] left-5 sm:left-6 lg:left-[17px] font-[Suprema-Regular] font-normal text-[#aeaeae] text-xs sm:text-sm lg:text-[10px]">
@@ -304,7 +292,7 @@ export const Dashboard = () => {
                     alt={item.label}
                     className="absolute top-[66px] sm:top-[81px] lg:top-[61px] left-5 sm:left-6 lg:left-4 w-7 h-7 sm:w-8 sm:h-8 lg:w-[26px] lg:h-[26px]"
                   />
-                  <div className="absolute top-[101px] sm:top-[116px] lg:top-[88px] left-5 sm:left-6 lg:left-4 font-[Suprema-Regular] font-normal text-[#404040] text-sm sm:text-base lg:text-[15px] font-medium">
+                  <div className="absolute top-[101px] sm:top-[116px] lg:top-[88px] left-5 sm:left-6 lg:left-4 font-[Suprema-Regular] text-[#404040] text-sm sm:text-base lg:text-[15px] font-medium">
                     {item.label}
                   </div>
                 </div>
@@ -323,19 +311,19 @@ export const Dashboard = () => {
                   <img
                     src={item.icon}
                     alt={item.label}
-                    className="absolute top-3 sm:top-4 lg:top-0 left-3 sm:left-4 lg:-left-2 w-[50px] h-[50px] sm:w-[55px] sm:h-[55px] lg:w-[70px] lg:h-[70px]"
+                    className="absolute top-[14px] sm:top-4 lg:top-0 left-3 sm:left-4 lg:-left-2 w-[50px] h-[50px] sm:w-[55px] sm:h-[55px] lg:w-[70px] lg:h-[70px]"
                   />
-                  <div className="absolute top-[25px] sm:top-[30px] lg:top-[9px] left-[65px] sm:left-[70px] lg:left-16 right-[60px] sm:right-[65px] lg:right-[70px] h-[30px] sm:h-[35px] lg:h-[29px]">
+                  <div className="absolute top-[25px] left-1/2 -translate-x-1/2 h-[30px] sm:top-[30px] sm:left-[70px] sm:right-[65px] sm:translate-x-0 lg:top-[9px] lg:left-16 lg:right-[70px]" style={{ width: 'calc(100% - 130px)' }}>
                     <div className="absolute top-[8px] sm:top-[10px] lg:top-px left-0 right-0 h-3 sm:h-4 lg:h-2 bg-[#f1f1f1] rounded-[12px] lg:rounded-[11.39px]" />
                     <div
                       className={`absolute top-[7px] sm:top-[9px] lg:top-0 left-px h-3 sm:h-4 lg:h-2 rounded-[10px] lg:rounded-[9.01px] ${item.gradientClass} transition-all duration-700 ease-out`}
                       style={{ width: `${item.progressValue}%` }}
                     />
-                    <div className="absolute top-[26px] sm:top-[30px] lg:top-[15px] left-0.5 font-[Suprema-Regular] font-normal text-[#aeaeae] text-sm sm:text-base lg:text-[11.7px] whitespace-nowrap">
+                    <div className="absolute top-[20px] left-1/2 -translate-x-1/2 text-center font-[Suprema-Regular] font-medium text-[#aeaeae] text-sm sm:top-[30px] sm:left-0.5 sm:translate-x-0 sm:text-left sm:text-base lg:top-[15px] lg:text-[11.7px] whitespace-nowrap">
                       {item.label}
                     </div>
                   </div>
-                  <div className="absolute top-[3px] sm:top-[5px] lg:top-0 right-4 sm:right-5 lg:right-0 font-[Suprema-Regular] font-normal text-[#696969] text-xl sm:text-2xl lg:text-[20.1px] font-bold">
+                  <div className="absolute top-1/2 -translate-y-1/2 sm:top-[5px] sm:translate-y-0 lg:top-0 right-4 sm:right-5 lg:right-0 font-[Suprema-Regular] text-[#696969] text-xl sm:text-2xl lg:text-[20.1px] font-bold">
                     {item.percentage}%
                   </div>
                 </div>
@@ -344,14 +332,14 @@ export const Dashboard = () => {
           </div>
         </div>
 
-        {/* History Table - Enhanced mobile cards */}
+        {/* Riwayat pengiriman: tabel responsif; di-mobile tampil sebagai kartu ringkas */}
         <div className="w-full max-w-full lg:max-w-[800px] bg-white rounded-[20px] sm:rounded-[24px] lg:rounded-[17px] shadow-lg sm:shadow-xl lg:shadow-[0px_0px_0.91px_#0000000a,0px_1.83px_5.49px_#0000000a,0px_14.63px_21.95px_#0000000f] overflow-hidden translate-y-[-1rem] animate-fade-in opacity-0 [--animation-delay:600ms] border border-[#f0f0f0] lg:border-none">
           <div className="p-5 sm:p-6 lg:px-[30px] lg:py-[14px]">
             <h3 className="font-[Suprema-SemiBold] font-semibold text-[#404040] text-lg sm:text-xl lg:text-base mb-5 sm:mb-6 lg:mb-[18px] text-left">
               History Pengiriman
             </h3>
             
-            {/* Desktop/Tablet Table - Tidak berubah */}
+            {/* Tabel khusus desktop/tablet: kolom customer, invoice, item, tanggal, status */}
             <div className="hidden md:block overflow-x-auto">
               <div className="grid grid-cols-[1.8fr_0.9fr_1fr_1fr_0.6fr] gap-x-4 mb-3 min-w-[600px]">
                 <div className="font-[Suprema-Regular] font-normal text-[#aeaeae] text-xs text-left">
@@ -465,11 +453,13 @@ export const Dashboard = () => {
 
           <div className="flex flex-col w-full items-center justify-center gap-[10px] px-[17.83px]">
            <div className="w-[70px] h-[70px] rounded-[16px] overflow-hidden">
-  <img
-    src={normalizeUrl(user?.profile_image) || "https://c.animaapp.com/mgrgm0itqrnJXn/img/profile.png"}
-    alt={user?.name || 'User'}
-    className="w-full h-full object-cover"
-  />
+          {user?.profile_image && !avatarError ? (
+            <img src={normalizeUrl(user?.profile_image)} alt={user?.name || 'User'} className="w-full h-full object-cover" onError={() => setAvatarError(true)} />
+          ) : (
+            <div className="w-full h-full bg-[#e0e0e0] flex items-center justify-center text-[#404040] text-[11px] [font-family:'Suprema-SemiBold',Helvetica]">
+              {(user?.name || 'U').slice(0,1)}
+            </div>
+          )}
 </div>
             <div className="flex flex-col items-center gap-[4px] w-full">
               <h3 className="font-[Suprema-SemiBold] font-semibold text-[#202020] text-[13px] text-center tracking-[0] leading-[normal]">
@@ -522,3 +512,4 @@ export const Dashboard = () => {
 };
 
 export default Dashboard;
+

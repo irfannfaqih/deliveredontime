@@ -1,12 +1,13 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import { useEffect, useRef, useState, useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import * as XLSX from "xlsx";
+import appLogoSvg from '../assets/logo.svg';
 import settingsIcon from '../assets/settingIcon.svg';
-import sefasLogoPng from '../assets/sefas-logo.png';
+import usersIcon from '../assets/users.svg';
 import { useAuth, useBBM, useDeliveries } from "../hooks/useAPI";
-import { fileAPI } from "../services/api";
+import { fileAPI, systemAPI } from "../services/api";
 import { normalizeUrl } from '../utils/url';
 
 const navigationItems = [
@@ -145,6 +146,7 @@ const ExportModal = ({ isOpen, onClose, deliveries, bbmRecords }) => {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [selectedMessenger, setSelectedMessenger] = useState("");
+  const [isExporting, setIsExporting] = useState(false);
 
   const messengerOptions = Array.from(new Set([
     ...((Array.isArray(deliveries) ? deliveries : []).map(d => d.messenger)).filter(Boolean),
@@ -197,6 +199,7 @@ const ExportModal = ({ isOpen, onClose, deliveries, bbmRecords }) => {
   };
 
   const handleExportPDF = async () => {
+    setIsExporting(true);
     const rows = buildRows();
     const rowsWithExtras = await Promise.all(rows.map(async (r) => {
       const matched = (Array.isArray(bbmRecords) ? bbmRecords : []).filter(b => toLocalYMD(b.tanggal) === String(r.date) && String(b.messenger || '').toLowerCase() === String(r.messenger || '').toLowerCase());
@@ -208,17 +211,23 @@ const ExportModal = ({ isOpen, onClose, deliveries, bbmRecords }) => {
         if (isFinite(amt)) sumRupiah += amt;
       }
       let attCount = 0;
+      const selectLink = async (att) => {
+        const raw = `${apiUrl}/files/raw/${att.id}`;
+        return raw;
+      }
       for (const b of matched) {
         try {
           const resp = await fileAPI.getAll({ bbm_record_id: b.id });
           const data = resp?.data ?? resp;
           const rows = Array.isArray(data?.data) ? data.data : (Array.isArray(data) ? data : []);
           attCount += rows.length;
-          rows.forEach(x => linkList.push(`${apiUrl}/files/raw/${x.id}`));
+          const selected = (await Promise.all(rows.map(selectLink))).filter(Boolean)
+          selected.forEach(u => linkList.push(u))
         } catch { void 0 }
       }
       return { ...r, jumlahBbm: sumRupiah, lampiran: attCount, lampiranLinks: linkList };
     }));
+    const grandTotal = rowsWithExtras.reduce((acc, rr) => acc + (Number(rr.jumlahBbm) || 0), 0);
     const loadImage = async (src) => {
       const finalSrc = normalizeUrl(src);
       const isSvg = String(finalSrc).toLowerCase().endsWith('.svg');
@@ -267,11 +276,24 @@ const ExportModal = ({ isOpen, onClose, deliveries, bbmRecords }) => {
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
 
-    const companyName = (import.meta.env.VITE_COMPANY_NAME || 'PT. SEFAS PELINDOTAMA');
-    const companyAddr = (import.meta.env.VITE_COMPANY_ADDRESS || 'Landasan Ulin Sel., Kec. Liang Anggang, Kota Banjar Baru, Kalimantan Selatan 70722');
-    const companyPhone = (import.meta.env.VITE_COMPANY_PHONE || '05116747319');
-    const companyEmail = (import.meta.env.VITE_COMPANY_EMAIL || '');
-    const logoSrc = import.meta.env.VITE_COMPANY_LOGO || sefasLogoPng;
+    const baseRoot = (import.meta.env.VITE_API_URL || 'http://localhost:3000/api').replace(/\/api\/?$/, '');
+    const settingsResp = await systemAPI.getSettings().catch(() => null);
+    const settings = settingsResp?.data || {};
+    const envLogo = import.meta.env.VITE_COMPANY_LOGO;
+    const headOk = async (u) => { try { const r = await fetch(u, { method: 'HEAD' }); return !!r.ok } catch { return false } }
+    const logoCandidates = [
+      settings.company_logo ? normalizeUrl(settings.company_logo) : null,
+      envLogo ? normalizeUrl(envLogo) : null,
+      normalizeUrl(`${baseRoot}/uploads/sefas-logo.png`),
+      normalizeUrl(`${baseRoot}/uploads/sefas-logo.svg`),
+      appLogoSvg
+    ].filter(Boolean)
+    let logoSrc = appLogoSvg
+    for (const c of logoCandidates) { if (await headOk(c)) { logoSrc = c; break } }
+    const companyName = settings.company_name || (import.meta.env.VITE_COMPANY_NAME || 'PT. SEFAS PELINDOTAMA');
+    const companyAddr = settings.company_address || (import.meta.env.VITE_COMPANY_ADDRESS || 'Landasan Ulin Sel., Kec. Liang Anggang, Kota Banjar Baru, Kalimantan Selatan 70722');
+    const companyPhone = settings.company_phone || (import.meta.env.VITE_COMPANY_PHONE || '05116747319');
+    const companyEmail = settings.company_email || (import.meta.env.VITE_COMPANY_EMAIL || '');
 
     
     const logo = await loadImage(logoSrc);
@@ -291,26 +313,29 @@ const ExportModal = ({ isOpen, onClose, deliveries, bbmRecords }) => {
     }
     doc.setTextColor(35, 35, 35);
     const textX = logoX + logoW + 8;
-    const nameFS = 16;
+    const nameFS = 14;
     doc.setFontSize(nameFS);
     const nameY = logoY + (logoH ? Math.round(logoH * 0.55) : 20);
     doc.text(String(companyName), textX + 6, nameY);
-    doc.setFontSize(9.5);
-    const contactLine = companyEmail ? `${companyAddr} | ${companyPhone} | ${companyEmail}` : `${companyAddr} | ${companyPhone}`;
+    doc.setFontSize(9);
     const contactY = nameY + 5;
-    doc.text(contactLine, textX + 6, contactY, { maxWidth: pageWidth - (textX + 6) });
-    doc.setFontSize(13);
+    const addrLine = String(companyAddr || '');
+    const phoneEmailLine = companyEmail ? `${companyPhone} | ${companyEmail}` : `${companyPhone}`;
+    doc.text(addrLine, textX + 6, contactY, { maxWidth: pageWidth - (textX + 6) });
+    const contactY2 = contactY + 5;
+    doc.text(phoneEmailLine, textX + 6, contactY2, { maxWidth: pageWidth - (textX + 6) });
+    doc.setFontSize(12);
     doc.setDrawColor(200);
     doc.setLineWidth(0.6);
     const sepX = logoX + logoW + 4;
     const sepTop = logoY;
-    const sepBottom = Math.max(contactY, logoY + logoH);
+    const sepBottom = Math.max(contactY2, logoY + logoH);
     doc.line(sepX, sepTop, sepX, sepBottom);
 
-    const titleY = contactY + 14;
+    const titleY = contactY2 + 14;
     doc.text('Laporan Pergantian BBM', marginLeft, titleY);
     const rangeText = `Rentang: ${startDate || '-'} s.d ${endDate || '-'}`;
-    doc.setFontSize(10);
+    doc.setFontSize(9);
     const rangeW = doc.getTextWidth(rangeText);
     doc.text(rangeText, pageWidth - marginRight - rangeW, titleY);
     if (selectedMessenger) {
@@ -366,10 +391,42 @@ const ExportModal = ({ isOpen, onClose, deliveries, bbmRecords }) => {
       startY: tableStartY,
       margin: { left: marginLeft, right: marginRight, bottom: 60 },
       tableWidth: pageWidth - (marginLeft + marginRight),
-      styles: { fontSize: 9, halign: 'center', valign: 'middle', cellPadding: 2.2 },
-      headStyles: { fillColor: [250,175,119], textColor: 255, fontSize: 10, halign: 'center', valign: 'middle', cellPadding: 2.2 },
+      styles: { fontSize: 7.4, halign: 'center', valign: 'middle', cellPadding: 1.6, overflow: 'linebreak', lineHeight: 1.2 },
+      headStyles: { fillColor: [250,175,119], textColor: 255, fontSize: 8.2, halign: 'center', valign: 'middle', cellPadding: 1.9 },
       alternateRowStyles: { fillColor: [253, 244, 236] },
-      columnStyles: { 0: { halign: 'center' }, 1: { halign: 'center' }, 2: { halign: 'center' }, 3: { halign: 'center' }, 4: { halign: 'center' }, 5: { halign: 'center' }, 6: { halign: 'center' }, 7: { halign: 'left' } },
+      columnStyles: {
+        0: { halign: 'center', cellWidth: 20 },
+        1: { halign: 'center', cellWidth: 22 },
+        2: { halign: 'center', cellWidth: 18 },
+        3: { halign: 'center', cellWidth: 18 },
+        4: { halign: 'center', cellWidth: 18 },
+        5: { halign: 'center', cellWidth: 18 },
+        6: { halign: 'center', cellWidth: 26 },
+        7: { halign: 'left',   cellWidth: 38, fontSize: 7.2 }
+      },
+      didParseCell: (data) => {
+        if (data.section === 'body' && data.column.index === 7) {
+          data.cell.styles.textColor = [33, 79, 198]
+        }
+      },
+      didDrawCell: (data) => {
+        try {
+          if (data.section === 'body' && data.column.index === 7) {
+            const raw = String(data.cell.raw || '')
+            if (!raw) return
+            const links = raw.split('\n').filter(Boolean)
+            const padX = 1.6
+            const padY = 1.4
+            let y = data.cell.y + padY + 2
+            links.forEach((u) => {
+              const x = data.cell.x + padX
+              const w = doc.getTextWidth(u)
+              doc.link(x, y - 1.5, Math.max(10, w), 4.2, { url: u })
+              y += 3.8
+            })
+          }
+        } catch { /* ignore */ }
+      },
       didDrawPage: (data) => {
         const pw = doc.internal.pageSize.getWidth();
         const ph = doc.internal.pageSize.getHeight();
@@ -393,6 +450,9 @@ const ExportModal = ({ isOpen, onClose, deliveries, bbmRecords }) => {
         if (f3) doc.text(f3, pw - 14 - doc.getTextWidth(f3), ph - 6);
 
         if (data.pageNumber === totalPages) {
+          doc.setTextColor(35);
+          doc.setFontSize(11);
+          doc.text(`Total Jumlah BBM: ${formatRupiah(grandTotal)}`, marginLeft, ph - 62);
           doc.setTextColor(60);
           doc.setFontSize(10);
           const monthNames = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
@@ -421,9 +481,11 @@ const ExportModal = ({ isOpen, onClose, deliveries, bbmRecords }) => {
 
     const fileName = `report-summary_${startDate || 'all'}_${endDate || 'all'}_${selectedMessenger || 'all'}.pdf`;
     doc.save(fileName);
+    setIsExporting(false);
   };
 
   const handleExportExcel = async () => {
+    setIsExporting(true);
     const rows = buildRows();
     const rowsWithExtras = await Promise.all(rows.map(async (r) => {
       const matched = (Array.isArray(bbmRecords) ? bbmRecords : []).filter(b => toLocalYMD(b.tanggal) === String(r.date) && String(b.messenger || '').toLowerCase() === String(r.messenger || '').toLowerCase());
@@ -460,12 +522,24 @@ const ExportModal = ({ isOpen, onClose, deliveries, bbmRecords }) => {
     XLSX.utils.book_append_sheet(wb, ws, "Summary");
     const fn = `report-summary_${startDate || 'all'}_${endDate || 'all'}_${selectedMessenger || 'all'}.xlsx`;
     XLSX.writeFile(wb, fn);
+    setIsExporting(false);
   };
 
   
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40 p-4">
+      {isExporting && (
+        <div className="fixed inset-0 z-[60] bg-black bg-opacity-40 flex items-center justify-center">
+          <div className="bg-white rounded-[12px] px-4 py-3 flex items-center gap-2 shadow">
+            <svg className="animate-spin w-5 h-5 text-[#197bbd]" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+              <path className="opacity-75" d="M4 12a8 8 0 018-8" stroke="currentColor" strokeWidth="4"></path>
+            </svg>
+            <span className="[font-family:'Inter',Helvetica] text-[#404040] text-[13px]">Menyiapkan file…</span>
+          </div>
+        </div>
+      )}
       <div className="bg-white rounded-[17.38px] shadow-[0px_0px_0.91px_#0000000a,0px_1.83px_5.49px_#0000000a,0px_14.63px_21.95px_#0000000f] w-full max-w-[800px] p-5 sm:p-7 transform transition-all duration-300 scale-100 max-h-[90vh] overflow-y-auto sm:overflow-visible">
         <div className="flex items-center justify-between mb-4 sm:mb-6">
           <div className="flex items-center gap-3">
@@ -492,22 +566,34 @@ const ExportModal = ({ isOpen, onClose, deliveries, bbmRecords }) => {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6 relative z-10">
           <div className="flex flex-col gap-2 p-3 rounded-[12px] border border-[#e5e5e5] hover:border-[#fbaf77] transition-colors">
             <span className="[font-family:'Suprema-SemiBold',Helvetica] text-[#404040] text-[13px] mb-1">Tanggal Awal</span>
-            <input
-              type="date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              className="w-full px-3 py-3 bg-white rounded-[10.26px] border-[0.85px] border-[#cccccccc] focus:border-[#fbaf77] [font-family:'Inter',Helvetica] font-medium text-black text-[10.3px]"
-            />
+            <div className="relative">
+              <svg className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#9e9e9e]" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" aria-hidden="true">
+                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                <path d="M16 2v4M8 2v4M3 10h18"></path>
+              </svg>
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="w-full pl-[44px] pr-[13.68px] py-[17.1px] bg-white rounded-[10.26px] border-[0.85px] border-[#cccccccc] focus:border-[#fbaf77] [font-family:'Inter',Helvetica] font-medium text-black text-[10.3px]"
+              />
+            </div>
           </div>
 
           <div className="flex flex-col gap-2 p-3 rounded-[12px] border border-[#e5e5e5] hover:border-[#fbaf77] transition-colors">
             <span className="[font-family:'Suprema-SemiBold',Helvetica] text-[#404040] text-[13px] mb-1">Tanggal Akhir</span>
-            <input
-              type="date"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              className="w-full px-3 py-3 bg-white rounded-[10.26px] border-[0.85px] border-[#cccccccc] focus:border-[#fbaf77] [font-family:'Inter',Helvetica] font-medium text-black text-[10.3px]"
-            />
+            <div className="relative">
+              <svg className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#9e9e9e]" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" aria-hidden="true">
+                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                <path d="M16 2v4M8 2v4M3 10h18"></path>
+              </svg>
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="w-full pl-[44px] pr-[13.68px] py-[17.1px] bg-white rounded-[10.26px] border-[0.85px] border-[#cccccccc] focus:border-[#fbaf77] [font-family:'Inter',Helvetica] font-medium text-black text-[10.3px]"
+              />
+            </div>
           </div>
 
           <div className="flex flex-col gap-2 p-3 rounded-[12px] border border-[#e5e5e5] hover:border-[#fbaf77] transition-colors">
@@ -596,6 +682,7 @@ export const Report = () => {
   const [isAttachmentModalOpen, setIsAttachmentModalOpen] = useState(false);
   const [attachments, setAttachments] = useState([]);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+  const [avatarError, setAvatarError] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const profileMenuRef = useRef(null);
   const { deliveries } = useDeliveries();
@@ -709,13 +796,9 @@ export const Report = () => {
 
   return (
     <div className="bg-[#f5f5f5] w-full min-h-screen flex">
-      {/* Mobile Header - Only visible on mobile */}
+      {/* Header mobile: logo + tombol menu, fixed di atas, khusus perangkat mobile */}
       <div className="lg:hidden fixed top-0 left-0 right-0 bg-white px-4 py-3 flex items-center justify-between shadow-md z-50">
-        <img
-          className="h-8"
-          alt="Logo"
-          src="https://c.animaapp.com/mgrgm0itqrnJXn/img/chatgpt-image-28-sep-2025--18-41-25-1.png"
-        />
+        <img className="h-8 opacity-100" alt="Logo" src={appLogoSvg} />
         <button
           onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
           className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
@@ -730,7 +813,7 @@ export const Report = () => {
         </button>
       </div>
 
-      {/* Mobile Menu Overlay */}
+      {/* Overlay menu mobile: navigasi utama, settings, logout; tutup saat klik di luar */}
       {isMobileMenuOpen && (
         <div 
           className="lg:hidden fixed inset-0 bg-black bg-opacity-50 z-40"
@@ -741,11 +824,7 @@ export const Report = () => {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="p-6">
-              <img
-                className="w-24 h-auto mb-8"
-                alt="Logo"
-                src="https://c.animaapp.com/mgrgm0itqrnJXn/img/chatgpt-image-28-sep-2025--18-41-25-1.png"
-              />
+              <img className="w-24 h-auto mb-8 opacity-100" alt="Logo" src={appLogoSvg} />
               
               <div className="flex flex-col gap-2 mb-8">
                 {navItems.map((item) => {
@@ -800,14 +879,10 @@ export const Report = () => {
         </div>
       )}
 
-      {/* Desktop Sidebar - Only visible on desktop */}
+      {/* Sidebar desktop: navigasi utama dengan layout sticky, hanya tampil di desktop */}
       <aside className="hidden lg:flex w-[200px] flex-shrink-0 bg-white shadow-[2px_24px_53px_#0000000d,8px_95px_96px_#0000000a,19px_214px_129px_#00000008,33px_381px_153px_#00000003,52px_596px_167px_transparent] px-[15px] py-[30px] flex-col justify-between h-screen sticky top-0">
         <div>
-          <img
-            className="w-[100px] h-[41px] mb-[45px]"
-            alt="Logo"
-            src="https://c.animaapp.com/mgrgm0itqrnJXn/img/chatgpt-image-28-sep-2025--18-41-25-1.png"
-          />
+          <img className="w-[100px] h-[41px] mb-[45px] opacity-100" alt="Logo" src={appLogoSvg} />
           
           <div className="flex flex-col gap-3">
             {navItems.map((item) => {
@@ -865,11 +940,13 @@ export const Report = () => {
                   {user?.name || 'User'}
                 </span>
                 <div className="w-8 h-8 rounded-full overflow-hidden">
-                  <img
-                     src={normalizeUrl(user?.profile_image) || "https://c.animaapp.com/mgrgm0itqrnJXn/img/profile.png"}
-                    alt={user?.name || 'User'}
-                    className="w-full h-full object-cover"
-                  />
+                  {user?.profile_image && !avatarError ? (
+                    <img src={normalizeUrl(user?.profile_image)} alt={user?.name || 'User'} className="w-full h-full object-cover" onError={() => setAvatarError(true)} />
+                  ) : (
+                    <div className="w-full h-full bg-[#e0e0e0] flex items-center justify-center text-[#404040] text-[11px] [font-family:'Suprema-SemiBold',Helvetica]">
+                      {(user?.name || 'U').slice(0,1)}
+                    </div>
+                  )}
                 </div>
               </button>
 
@@ -1192,7 +1269,7 @@ export const Report = () => {
       <ExportModal isOpen={isExportModalOpen} onClose={() => setIsExportModalOpen(false)} deliveries={deliveries} bbmRecords={bbmRecords} />
       <AttachmentsModal isOpen={isAttachmentModalOpen} onClose={() => setIsAttachmentModalOpen(false)} attachments={attachments} />
 
-      <style jsx>{`
+      <style>{`
         @keyframes fade-in {
           from {
             opacity: 0;
@@ -1214,4 +1291,4 @@ export const Report = () => {
 };
 
 export default Report;
-import usersIcon from '../assets/users.svg';
+

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import appLogoSvg from '../assets/logo.svg';
 import settingsIcon from '../assets/settingIcon.svg';
 import usersIcon from '../assets/users.svg';
 import { useAuth } from "../hooks/useAPI";
@@ -52,8 +53,9 @@ const InputUser = () => {
 
   return (
     <div className="bg-[#f5f5f5] w-full min-h-screen flex">
+      {/* Header mobile: logo + tombol menu, fixed di atas, khusus perangkat mobile */}
       <div className="lg:hidden fixed top-0 left-0 right-0 bg-white px-4 py-3 flex items-center justify-between shadow-md z-50">
-        <img className="h-8" alt="Logo" src="https://c.animaapp.com/mgrgm0itqrnJXn/img/chatgpt-image-28-sep-2025--18-41-25-1.png" />
+        <img className="h-8 opacity-100" alt="Logo" src={appLogoSvg} />
         <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
           <svg className="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             {isMobileMenuOpen ? (
@@ -65,11 +67,12 @@ const InputUser = () => {
         </button>
       </div>
 
+      {/* Overlay menu mobile: navigasi utama, settings, logout; tutup saat klik di luar */}
       {isMobileMenuOpen && (
         <div className="lg:hidden fixed inset-0 bg-black bg-opacity-50 z-40" onClick={() => setIsMobileMenuOpen(false)}>
           <div className="bg-white w-64 h-full shadow-xl" onClick={(e) => e.stopPropagation()}>
             <div className="p-6">
-              <img className="w-24 h-auto mb-8" alt="Logo" src="https://c.animaapp.com/mgrgm0itqrnJXn/img/chatgpt-image-28-sep-2025--18-41-25-1.png" />
+              <img className="w-24 h-auto mb-8 opacity-100" alt="Logo" src={appLogoSvg} />
               <div className="flex flex-col gap-2 mb-8">
                 {navItems.map((item) => {
                   const ItemWrapper = item.href !== "#" ? Link : "button";
@@ -95,9 +98,10 @@ const InputUser = () => {
         </div>
       )}
 
+      {/* Sidebar desktop: navigasi utama dengan layout sticky, hanya tampil di desktop */}
       <aside className="hidden lg:flex w-[200px] flex-shrink-0 bg-white shadow-[2px_24px_53px_#0000000d,8px_95px_96px_#0000000a,19px_214px_129px_#00000008,33px_381px_153px_#00000003,52px_596px_167px_transparent] px-[15px] py-[30px] flex-col justify-between h-screen sticky top-0">
         <div>
-          <img className="w-[100px] h-[41px] mb-[45px]" alt="Logo" src="https://c.animaapp.com/mgrgm0itqrnJXn/img/chatgpt-image-28-sep-2025--18-41-25-1.png" />
+          <img className="w-[100px] h-[41px] mb-[45px] opacity-100" alt="Logo" src={appLogoSvg} />
           <div className="flex flex-col gap-3">
             {navItems.map((item) => {
               const ItemWrapper = item.href !== "#" ? Link : "button";
