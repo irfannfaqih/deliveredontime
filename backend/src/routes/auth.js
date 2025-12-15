@@ -226,12 +226,29 @@ router.get('/profile', requireAuth, async (req, res) => {
 
 router.put('/profile', requireAuth, async (req, res) => {
   try {
-    const { name, phone, profile_image, vehicle_info, status, is_active } = req.body || {}
-    
+    const { name, phone, profile_image, vehicle_info, status, is_active, email } = req.body || {}
+
+    // Jika user ingin mengganti email, validasi format dan cek duplikasi
+    if (email) {
+      const emailStr = String(email).trim()
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+      if (!emailRegex.test(emailStr)) {
+        return res.status(400).json({ error: 'Format email tidak valid' })
+      }
+      const exists = await query(
+        'SELECT id FROM users WHERE email = ? AND id <> ?',
+        [emailStr, req.user.sub]
+      )
+      if (exists.length) {
+        return res.status(409).json({ error: 'Email sudah digunakan' })
+      }
+    }
+
     await query(
-      'UPDATE users SET name = COALESCE(?, name), phone = COALESCE(?, phone), profile_image = COALESCE(?, profile_image), vehicle_info = COALESCE(?, vehicle_info), status = COALESCE(?, status), is_active = COALESCE(?, is_active) WHERE id = ?',
+      'UPDATE users SET name = COALESCE(?, name), email = COALESCE(?, email), phone = COALESCE(?, phone), profile_image = COALESCE(?, profile_image), vehicle_info = COALESCE(?, vehicle_info), status = COALESCE(?, status), is_active = COALESCE(?, is_active) WHERE id = ?',
       [
         name || null,
+        email || null,
         phone || null,
         profile_image || null,
         vehicle_info || null,
@@ -240,12 +257,12 @@ router.put('/profile', requireAuth, async (req, res) => {
         req.user.sub
       ]
     )
-    
+
     const rows = await query(
       'SELECT id, name, email, role, status, phone, profile_image, vehicle_info, is_active FROM users WHERE id = ?',
       [req.user.sub]
     )
-    
+
     res.json({
       success: true,
       message: 'Profile berhasil diupdate',

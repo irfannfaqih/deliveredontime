@@ -221,8 +221,7 @@ export const Settings = () => {
 
   const handleSaveProfile = async () => {
     try {
-      // Hanya kirim nama, karena profile_image sudah di-update otomatis saat upload
-      const payload = { name: formData.fullName };
+      const payload = { name: formData.fullName, email: formData.email };
       
       const result = await updateProfile(payload);
       if (result?.success) {

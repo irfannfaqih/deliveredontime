@@ -209,7 +209,7 @@ const DetailModal = ({ isOpen, onClose, data, attachments, onDelete, onEdit, onP
   );
 };
 
-const EditModal = ({ isOpen, onClose, data, messengerOptions, onSave, attachments, deliveryId, onUpload, onRemoveAttachment, onPreview }) => {
+const EditModal = ({ isOpen, onClose, data, messengerOptions, onSave, attachments, onPreview }) => {
   const formatDateInput = (d) => {
     if (!d) return ''
     try {
@@ -264,13 +264,38 @@ const EditModal = ({ isOpen, onClose, data, messengerOptions, onSave, attachment
     }
   }, [isOpen, data])
 
+  useEffect(() => {
+    if (isOpen && data) {
+      setRemovedIds([])
+      setStagedFiles([])
+      setStagedUrls([])
+      setImageFail({})
+    }
+  }, [isOpen, data])
+
   const setVal = (k, v) => setForm(prev => ({ ...prev, [k]: v }))
   
   const [imageFail, setImageFail] = useState({})
+  const [stagedFiles, setStagedFiles] = useState([])
+  const [stagedUrls, setStagedUrls] = useState([])
+  const [removedIds, setRemovedIds] = useState([])
+  const [isSaving, setIsSaving] = useState(false)
+  useEffect(() => {
+    return () => {
+      stagedUrls.forEach(u => URL.revokeObjectURL(u))
+    }
+  }, [stagedUrls])
+
   if (!isOpen || !data) return null;
-  const handleSelectFiles = async (e) => {
+  const handleSelectFiles = (e) => {
     const files = Array.from(e.target.files || [])
-    if (files.length && deliveryId) await onUpload(files)
+    if (!files.length) return
+    const existing = new Set(stagedFiles.map(f => `${f.name}|${f.size}|${f.lastModified}`))
+    const deduped = files.filter(f => !existing.has(`${f.name}|${f.size}|${f.lastModified}`))
+    if (!deduped.length) { e.target.value = ''; return }
+    const urls = deduped.map(f => URL.createObjectURL(f))
+    setStagedFiles(prev => [...prev, ...deduped])
+    setStagedUrls(prev => [...prev, ...urls])
     e.target.value = ''
   }
 
@@ -369,7 +394,7 @@ const EditModal = ({ isOpen, onClose, data, messengerOptions, onSave, attachment
             </div>
             {attachments.length > 0 ? (
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-3">
-                {attachments.map(att => {
+                {attachments.filter(att => !removedIds.includes(att.id)).map(att => {
                   const mime = String(att.mime_type || '').toLowerCase()
                   const nameRef = String(att.original_filename || att.stored_filename || '').toLowerCase()
                   const isImage = mime.startsWith('image/') || /\.(jpg|jpeg|png|gif|webp|bmp)$/i.test(nameRef)
@@ -385,7 +410,7 @@ const EditModal = ({ isOpen, onClose, data, messengerOptions, onSave, attachment
                           <span className="truncate">{att.original_filename}</span>
                         </a>
                       )}
-                      <button onClick={() => onRemoveAttachment(att.id)} className="absolute top-2 right-2 bg-white bg-opacity-80 hover:bg-opacity-100 border border-[#e5e5e5] rounded-full p-1">
+                      <button onClick={() => setRemovedIds(prev => [...prev, att.id])} className="absolute top-2 right-2 bg-white bg-opacity-80 hover:bg-opacity-100 border border-[#e5e5e5] rounded-full p-1">
                         <svg className="w-4 h-4 text-[#e53935]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5-4h4" /></svg>
                       </button>
                     </div>
@@ -395,11 +420,42 @@ const EditModal = ({ isOpen, onClose, data, messengerOptions, onSave, attachment
             ) : (
               <div className="text-[#9e9e9e] [font-family:'Inter',Helvetica] text-[12px]">Belum ada lampiran</div>
             )}
+            {stagedUrls.length > 0 && (
+              <div className="mt-4">
+                <div className="font-['Inter',Helvetica] font-bold text-black text-sm mb-2">Lampiran Baru (belum disimpan)</div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-3">
+                  {stagedUrls.map((url, idx) => (
+                    <div key={idx} className="relative group">
+                      <img className="w-full h-[140px] sm:h-[160px] lg:h-[180px] rounded-[12px] object-cover" alt={`staged-${idx}`} src={url} />
+                      <button onClick={() => { setStagedFiles(prev => prev.filter((_, i) => i !== idx)); setStagedUrls(prev => prev.filter((_, i) => i !== idx)); }} className="absolute top-2 right-2 bg-white bg-opacity-80 hover:bg-opacity-100 border border-[#e5e5e5] rounded-full p-1">
+                        <svg className="w-4 h-4 text-[#e53935]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5-4h4" /></svg>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
 
         <div className="border-t border-[#e5e5e5] pt-4 mt-4 flex flex-col sm:flex-row items-center justify-end gap-3">
-          <button onClick={() => onSave(form)} className="bg-[#197bbd] hover:bg-[#1569a3] text-white [font-family:'Quicksand',Helvetica] font-bold text-[12px] px-6 py-3 rounded-[12.45px] h-auto transition-all">Simpan</button>
+          <button
+            onClick={async () => {
+              if (isSaving) return
+              setIsSaving(true)
+              try {
+                await onSave(form, stagedFiles, removedIds)
+                setStagedFiles([])
+                setStagedUrls([])
+                setRemovedIds([])
+              } catch { /* keep staged if failed */ }
+              setIsSaving(false)
+            }}
+            disabled={isSaving}
+            className={`bg-[#197bbd] hover:bg-[#1569a3] text-white [font-family:'Quicksand',Helvetica] font-bold text-[12px] px-6 py-3 rounded-[12.45px] h-auto transition-all ${isSaving ? 'opacity-60 cursor-not-allowed' : ''}`}
+          >
+            Simpan
+          </button>
           <button onClick={onClose} className="px-6 py-3 border border-[#cccccccc] rounded-[12.45px] [font-family:'Quicksand',Helvetica] font-bold text-[#404040] text-[12px] hover:bg-gray-50 transition-colors">Batal</button>
         </div>
       </div>
@@ -942,6 +998,7 @@ const ExportModal = ({ isOpen, onClose, messengerOptions, data }) => {
 export const Delivered = () => {
   const [searchCustomer, setSearchCustomer] = useState("");
   const [searchItem, setSearchItem] = useState("");
+  const [searchInvoice, setSearchInvoice] = useState("");
   const [searchSentDate, setSearchSentDate] = useState("");
   const [searchDeliveredDate, setSearchDeliveredDate] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -1053,6 +1110,9 @@ export const Delivered = () => {
     const matchesCustomer = row.customer
       .toLowerCase()
       .includes(searchCustomer.toLowerCase());
+    const matchesInvoice = row.invoice
+      .toLowerCase()
+      .includes(searchInvoice.toLowerCase());
     const matchesItem = row.item
       .toLowerCase()
       .includes(searchItem.toLowerCase());
@@ -1063,7 +1123,7 @@ export const Delivered = () => {
       statusFilter === "all" ||
       row.status.toLowerCase().includes(statusFilter.toLowerCase());
 
-    return matchesCustomer && matchesItem && matchesDate && matchesStatus;
+    return matchesCustomer && matchesInvoice && matchesItem && matchesDate && matchesStatus;
   });
 
   const displayedData = filteredData.slice(0, entriesPerPage);
@@ -1302,6 +1362,24 @@ export const Delivered = () => {
                   </div>
                 </div>
 
+              <div className="flex flex-col gap-2">
+                  <label className="[font-family:'Inter',Helvetica] font-medium text-black text-xs tracking-[0] leading-[normal]">
+                    No Invoice
+                  </label>
+                  <div className="relative">
+                    <svg className="absolute left-[13.68px] top-1/2 -translate-y-1/2 w-[13.68px] h-[13.68px] text-[#9e9e9e]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <circle cx="11" cy="11" r="8"></circle>
+                      <path d="m21 21-4.35-4.35"></path>
+                    </svg>
+                    <input
+                      placeholder="No Invoice"
+                      value={searchInvoice}
+                      onChange={(e) => setSearchInvoice(e.target.value)}
+                      className="w-full pl-[35px] pr-[13.68px] py-[17.1px] h-auto bg-white rounded-[10.26px] border-[0.85px] border-[#cccccccc] [font-family:'Inter',Helvetica] font-medium text-black text-[10.3px] placeholder:text-[#9e9e9e]"
+                    />
+                  </div>
+                </div>
+
                 <div className="flex flex-col gap-2">
                   <label className="[font-family:'Inter',Helvetica] font-medium text-black text-xs tracking-[0] leading-[normal]">
                     Nama Item
@@ -1312,7 +1390,7 @@ export const Delivered = () => {
                       <path d="m21 21-4.35-4.35"></path>
                     </svg>
                     <input
-                      placeholder="Invoice, Invoice JNT, Invoice JNE ......"
+                      placeholder="Nama Item"
                       value={searchItem}
                       onChange={(e) => setSearchItem(e.target.value)}
                       className="w-full pl-[35px] pr-[13.68px] py-[17.1px] h-auto bg-white rounded-[10.26px] border-[0.85px] border-[#cccccccc] [font-family:'Inter',Helvetica] font-medium text-black text-[10.3px] placeholder:text-[#9e9e9e]"
@@ -1448,9 +1526,9 @@ export const Delivered = () => {
                       <div
                         key={`history-mobile-${row.invoice}-${index}`}
                         onClick={() => handleCustomerClick(row)}
-                        className="bg-[#fafafa] border border-[#e5e5e5] rounded-[12px] p-3.5 cursor-pointer hover:border-[#faa463] hover:shadow-md transition-all duration-200"
+                        className="bg-[#fafafa] border border-[#e5e5e5] rounded-[12px] p-3.5 cursor-pointer hover:border-[#faa463] hover:shadow-md transition-all duration-200 text-left"
                       >
-                        <div className="flex justify-between items-start gap-3 mb-3">
+                        <div className="flex items-start gap-3 mb-3">
                           <div className="flex-1 min-w-0">
                             <p className="[font-family:'Suprema-SemiBold',Helvetica] font-semibold text-[#404040] text-[13px] mb-1 leading-tight truncate">
                               {row.customer}
@@ -1459,33 +1537,30 @@ export const Delivered = () => {
                               #{row.invoice}
                             </p>
                           </div>
-                          <span className={`[font-family:'Lato',Helvetica] font-bold text-[10px] px-2.5 py-1 rounded-md whitespace-nowrap flex-shrink-0 ${
-                            row.status.toLowerCase().includes('on time') 
-                              ? 'bg-[#e8f5e9] text-[#2e7d32]' 
-                              : 'bg-[#fff3e0] text-[#e65100]'
-                          }`}>
-                            {row.status}
-                          </span>
                         </div>
                         
                         <div className="space-y-2 pt-2 border-t border-[#e5e5e5]">
                           <div className="flex items-start gap-2">
-                            <span className="[font-family:'Suprema-Regular',Helvetica] font-medium text-[#696969] text-[11px] min-w-[70px]">Item:</span>
+                            <span className="[font-family:'Suprema-Regular',Helvetica] font-medium text-[#696969] text-[11px] min-w-[85px]">Status:</span>
+                            <span className="[font-family:'Suprema-Regular',Helvetica] font-normal text-[#404040] text-[11px] flex-1">{row.status}</span>
+                          </div>
+                          <div className="flex items-start gap-2">
+                            <span className="[font-family:'Suprema-Regular',Helvetica] font-medium text-[#696969] text-[11px] min-w-[85px]">Item:</span>
                             <span className="[font-family:'Suprema-Regular',Helvetica] font-normal text-[#404040] text-[11px] flex-1">{row.item}</span>
                           </div>
                           
                           <div className="flex items-start gap-2">
-                            <span className="[font-family:'Suprema-Regular',Helvetica] font-medium text-[#696969] text-[11px] min-w-[70px]">Diterima:</span>
+                            <span className="[font-family:'Suprema-Regular',Helvetica] font-medium text-[#696969] text-[11px] min-w-[85px]">Diterima:</span>
                             <span className="[font-family:'Suprema-Regular',Helvetica] font-normal text-[#404040] text-[11px] flex-1">{row.deliveredDate}</span>
                           </div>
 
                           <div className="flex items-start gap-2">
-                            <span className="[font-family:'Suprema-Regular',Helvetica] font-medium text-[#696969] text-[11px] min-w-[70px]">Dikirim:</span>
+                            <span className="[font-family:'Suprema-Regular',Helvetica] font-medium text-[#696969] text-[11px] min-w-[85px]">Dikirim:</span>
                             <span className="[font-family:'Suprema-Regular',Helvetica] font-normal text-[#404040] text-[11px] flex-1">{row.sentDate}</span>
                           </div>
                           
                           <div className="flex items-start gap-2">
-                            <span className="[font-family:'Suprema-Regular',Helvetica] font-medium text-[#696969] text-[11px] min-w-[70px]">Messenger:</span>
+                            <span className="[font-family:'Suprema-Regular',Helvetica] font-medium text-[#696969] text-[11px] min-w-[85px]">Messenger:</span>
                             <span className="[font-family:'Suprema-Regular',Helvetica] font-normal text-[#404040] text-[11px] flex-1">{row.messenger}</span>
                           </div>
                         </div>
@@ -1547,28 +1622,28 @@ export const Delivered = () => {
         data={selectedDetail}
         messengerOptions={messengerOptions}
         attachments={deliveryAttachments}
-        deliveryId={selectedDetail?.id}
-        onUpload={async (files) => {
-          const added = []
-          for (const f of files) {
-            try {
-              const resp = await fileAPI.upload(f, 'delivery_proof', { delivery_id: selectedDetail?.id })
-              const d = resp?.data ?? resp
-              const row = d?.data ?? d
-              if (row) added.push(row)
-            } catch { void 0 }
-          }
-          if (added.length) setDeliveryAttachments(prev => [...prev, ...added])
-        }}
-        onRemoveAttachment={async (attId) => {
-          try {
-            await fileAPI.delete(attId)
-            setDeliveryAttachments(prev => prev.filter(a => a.id !== attId))
-          } catch { void 0 }
-        }}
-        onSave={async (payload) => {
+        onSave={async (payload, newFiles, removedIds) => {
           if (!selectedDetail?.id) return;
-          await updateDelivery(selectedDetail.id, payload);
+          const { status: _STATUS, ...rest } = payload || {};
+          if (Array.isArray(newFiles) && newFiles.length) {
+            const added = []
+            for (const f of newFiles) {
+              try {
+                const resp = await fileAPI.upload(f, 'delivery_proof', { delivery_id: selectedDetail?.id })
+                const d = resp?.data ?? resp
+                const row = d?.data ?? d
+                if (row) added.push(row)
+              } catch { void 0 }
+            }
+            if (added.length) setDeliveryAttachments(prev => [...prev, ...added])
+          }
+          if (Array.isArray(removedIds) && removedIds.length) {
+            for (const id of removedIds) {
+              try { await fileAPI.delete(id) } catch { void 0 }
+            }
+            setDeliveryAttachments(prev => prev.filter(a => !removedIds.includes(a.id)))
+          }
+          await updateDelivery(selectedDetail.id, rest);
           try {
             const resp = await deliveredAPI.getById(selectedDetail.id)
             const data = resp?.data ?? resp

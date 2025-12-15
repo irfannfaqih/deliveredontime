@@ -218,7 +218,7 @@ const AttachmentPreviewModal = ({ isOpen, att, onClose }) => {
   );
 };
 
-const EditBBMModal = ({ isOpen, onClose, data, onSave, attachments, bbmId, onUpload, onRemoveAttachment, onPreview }) => {
+const EditBBMModal = ({ isOpen, onClose, data, onSave, attachments, onPreview }) => {
   const base = data || {};
   const [form, setForm] = useState({
     tanggal: base.tanggalRaw || '',
@@ -228,6 +228,10 @@ const EditBBMModal = ({ isOpen, onClose, data, onSave, attachments, bbmId, onUpl
     messenger: base.messenger || ''
   });
   const [errors, setErrors] = useState({});
+  const [stagedFiles, setStagedFiles] = useState([]);
+  const [stagedUrls, setStagedUrls] = useState([]);
+  const [isSaving, setIsSaving] = useState(false);
+  const [removedIds, setRemovedIds] = useState([]);
   const [imageFail, setImageFail] = useState({});
   const [messengers, setMessengers] = useState([]);
   useEffect(() => {
@@ -240,6 +244,14 @@ const EditBBMModal = ({ isOpen, onClose, data, onSave, attachments, bbmId, onUpl
         messenger: data.messenger || ''
       });
       setErrors({});
+    }
+  }, [isOpen, data]);
+  useEffect(() => {
+    if (isOpen && data) {
+      setRemovedIds([]);
+      setStagedFiles([]);
+      setStagedUrls([]);
+      setImageFail({});
     }
   }, [isOpen, data]);
   useEffect(() => {
@@ -307,7 +319,7 @@ const EditBBMModal = ({ isOpen, onClose, data, onSave, attachments, bbmId, onUpl
       jumlah_bbm_rupiah: Number(form.jumlah_bbm_rupiah),
       messenger: form.messenger
     };
-    onSave && onSave(payload);
+    onSave && onSave(payload, stagedFiles, removedIds);
   };
   const formatDateInput = (d) => {
     if (!d) return '';
@@ -319,9 +331,15 @@ const EditBBMModal = ({ isOpen, onClose, data, onSave, attachments, bbmId, onUpl
       return `${yyyy}-${mm}-${dd}`;
     } catch { return String(d); }
   };
-  const handleSelectFiles = async (e) => {
+  const handleSelectFiles = (e) => {
     const files = Array.from(e.target.files || []);
-    if (files.length && bbmId && onUpload) await onUpload(files);
+    if (!files.length) return;
+    const existing = new Set(stagedFiles.map(f => `${f.name}|${f.size}|${f.lastModified}`));
+    const deduped = files.filter(f => !existing.has(`${f.name}|${f.size}|${f.lastModified}`));
+    if (!deduped.length) { e.target.value = ''; return }
+    const urls = deduped.map(f => URL.createObjectURL(f));
+    setStagedFiles(prev => [...prev, ...deduped]);
+    setStagedUrls(prev => [...prev, ...urls]);
     e.target.value = '';
   };
   return (
@@ -392,10 +410,7 @@ const EditBBMModal = ({ isOpen, onClose, data, onSave, attachments, bbmId, onUpl
             </div>
             {attachments.length > 0 ? (
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-3">
-                {[...attachments].sort((a,b) => {
-                  if (a.created_at && b.created_at) return new Date(b.created_at) - new Date(a.created_at);
-                  return (b.id || 0) - (a.id || 0);
-                }).map(att => {
+                {attachments.filter(att => !removedIds.includes(att.id)).map(att => {
                   const mime = String(att.mime_type || '').toLowerCase();
                   const nameRef = String(att.stored_filename || att.original_filename || '').toLowerCase();
                   const isImage = mime.startsWith('image/') || /(jpg|jpeg|png|gif|webp|bmp)$/i.test(nameRef);
@@ -412,7 +427,7 @@ const EditBBMModal = ({ isOpen, onClose, data, onSave, attachments, bbmId, onUpl
                           <span className="truncate">{att.original_filename}</span>
                         </a>
                       )}
-                      <button onClick={() => onRemoveAttachment && onRemoveAttachment(att.id)} className="absolute top-2 right-2 bg-white bg-opacity-80 hover:bg-opacity-100 border border-[#e5e5e5] rounded-full p-1">
+                      <button onClick={() => setRemovedIds(prev => [...prev, att.id])} className="absolute top-2 right-2 bg-white bg-opacity-80 hover:bg-opacity-100 border border-[#e5e5e5] rounded-full p-1">
                         <svg className="w-4 h-4 text-[#e53935]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5-4h4" /></svg>
                       </button>
                     </div>
@@ -422,10 +437,40 @@ const EditBBMModal = ({ isOpen, onClose, data, onSave, attachments, bbmId, onUpl
             ) : (
               <div className="text-[#9e9e9e] [font-family:'Inter',Helvetica] text-[12px]">Belum ada lampiran</div>
             )}
+            {stagedUrls.length > 0 && (
+              <div className="mt-4">
+                <div className="font-['Inter',Helvetica] font-bold text-black text-sm mb-2">Lampiran Baru (belum disimpan)</div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-3">
+                  {stagedUrls.map((url, idx) => (
+                    <div key={idx} className="relative group">
+                      <img className="w-full h-[140px] sm:h-[160px] lg:h-[180px] rounded-[12px] object-cover" alt={`staged-${idx}`} src={url} />
+                      <button onClick={() => { setStagedFiles(prev => prev.filter((_, i) => i !== idx)); setStagedUrls(prev => prev.filter((_, i) => i !== idx)); }} className="absolute top-2 right-2 bg-white bg-opacity-80 hover:bg-opacity-100 border border-[#e5e5e5] rounded-full p-1">
+                        <svg className="w-4 h-4 text-[#e53935]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5-4h4" /></svg>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
         <div className="border-t border-[#e5e5e5] pt-4 mt-4 flex flex-col sm:flex-row items-center justify-end gap-3">
-          <button onClick={save} className="bg-[#197bbd] hover:bg-[#1569a3] text-white [font-family:'Quicksand',Helvetica] font-bold text-[12px] px-6 py-3 rounded-[12.45px] h-auto transition-all">Simpan</button>
+          <button
+            onClick={async () => {
+              if (isSaving) return;
+              setIsSaving(true);
+              try {
+                await save();
+                setStagedFiles([]);
+                setStagedUrls([]);
+              } catch { /* keep staged if failed */ }
+              setIsSaving(false);
+            }}
+            disabled={isSaving}
+            className={`bg-[#197bbd] hover:bg-[#1569a3] text-white [font-family:'Quicksand',Helvetica] font-bold text-[12px] px-6 py-3 rounded-[12.45px] h-auto transition-all ${isSaving ? 'opacity-60 cursor-not-allowed' : ''}`}
+          >
+            Simpan
+          </button>
           <button onClick={onClose} className="px-6 py-3 border border-[#cccccccc] rounded-[12.45px] [font-family:'Quicksand',Helvetica] font-bold text-[#404040] text-[12px] hover:bg-gray-50 transition-colors">Batal</button>
         </div>
       </div>
@@ -929,9 +974,9 @@ export const BBM = () => {
                       <div
                         key={`bbm-mobile-${row.tanggal}-${index}`}
                         onClick={() => handleDateClick(row)}
-                        className="bg-[#fafafa] border border-[#e5e5e5] rounded-[12px] p-3.5 cursor-pointer hover:border-[#faa463] hover:shadow-md transition-all duration-200"
+                        className="bg-[#fafafa] border border-[#e5e5e5] rounded-[12px] p-3.5 cursor-pointer hover:border-[#faa463] hover:shadow-md transition-all duration-200 text-left"
                       >
-                        <div className="flex justify-between items-start gap-3 mb-3">
+                        <div className="flex items-start gap-3 mb-3">
                           <div className="flex-1 min-w-0">
                             <p className="[font-family:'Suprema-SemiBold',Helvetica] font-semibold text-[#404040] text-[13px] mb-1 leading-tight truncate">
                               {row.tanggal}
@@ -940,9 +985,6 @@ export const BBM = () => {
                               {row.messenger}
                             </p>
                           </div>
-                          <button onClick={() => handleViewAttachment(row)} className="[font-family:'Lato',Helvetica] font-bold text-[10px] px-2.5 py-1 rounded-md bg-[#e8f5e9] text-[#2e7d32] whitespace-nowrap flex-shrink-0">
-                            Lihat
-                          </button>
                         </div>
                         
                         <div className="space-y-2 pt-2 border-t border-[#e5e5e5]">
@@ -950,19 +992,21 @@ export const BBM = () => {
                             <span className="[font-family:'Suprema-Regular',Helvetica] font-medium text-[#696969] text-[11px] min-w-[85px]">KM Awal:</span>
                             <span className="[font-family:'Suprema-Regular',Helvetica] font-normal text-[#404040] text-[11px] flex-1">{row.kilometerAwal}</span>
                           </div>
-                          
                           <div className="flex items-start gap-2">
                             <span className="[font-family:'Suprema-Regular',Helvetica] font-medium text-[#696969] text-[11px] min-w-[85px]">KM Akhir:</span>
                             <span className="[font-family:'Suprema-Regular',Helvetica] font-normal text-[#404040] text-[11px] flex-1">{row.kilometerAkhir}</span>
                           </div>
-                          
                           <div className="flex items-start gap-2">
                             <span className="[font-family:'Suprema-Regular',Helvetica] font-medium text-[#696969] text-[11px] min-w-[85px]">Total KM:</span>
                             <span className="[font-family:'Suprema-Regular',Helvetica] font-normal text-[#404040] text-[11px] flex-1">{row.totalKilometer}</span>
-                            <div className="flex items-start gap-2">
-                            <span className="[font-family:'Suprema-Regular',Helvetica] font-medium text-[#696969] text-[11px] min-w-[85px]">BBM:</span>
+                          </div>
+                          <div className="flex items-start gap-2">
+                            <span className="[font-family:'Suprema-Regular',Helvetica] font-medium text-[#696969] text-[11px] min-w-[85px]">Jumlah BBM:</span>
                             <span className="[font-family:'Suprema-Regular',Helvetica] font-normal text-[#404040] text-[11px] flex-1">Rp {row.jumlahBbmRupiahFormatted}</span>
-                            </div>
+                          </div>
+                          <div className="flex items-start gap-2">
+                            <span className="[font-family:'Suprema-Regular',Helvetica] font-medium text-[#696969] text-[11px] min-w-[85px]">Attachment:</span>
+                            <button onClick={() => handleViewAttachment(row)} className="[font-family:'Suprema-Regular',Helvetica] font-normal text-[#404040] text-[11px] underline flex-1 text-left">Lihat</button>
                           </div>
                         </div>
                       </div>
@@ -1027,28 +1071,27 @@ export const BBM = () => {
         onClose={() => setIsEditModalOpen(false)}
         data={selectedDetail}
         attachments={bbmAttachments}
-        bbmId={selectedDetail?.id}
-        onUpload={async (files) => {
-          const added = [];
-          for (const f of files) {
-            try {
-              const resp = await fileAPI.upload(f, 'bbm_proof', { bbm_record_id: selectedDetail?.id });
-              const d = resp?.data ?? resp;
-              const row = d?.data ?? d;
-              if (row) added.push(row);
-            } catch { void 0 }
-          }
-          if (added.length) setBbmAttachments(prev => [...prev, ...added]);
-        }}
-        onRemoveAttachment={async (attId) => {
-          try {
-            await fileAPI.delete(attId);
-            setBbmAttachments(prev => prev.filter(a => a.id !== attId));
-          } catch { void 0 }
-        }}
         onPreview={handlePreview}
-        onSave={async (payload) => {
+        onSave={async (payload, newFiles, removedIds) => {
           try {
+            if (Array.isArray(newFiles) && newFiles.length) {
+              const added = [];
+              for (const f of newFiles) {
+                try {
+                  const resp = await fileAPI.upload(f, 'bbm_proof', { bbm_record_id: selectedDetail?.id });
+                  const d = resp?.data ?? resp;
+                  const row = d?.data ?? d;
+                  if (row) added.push(row);
+                } catch { void 0 }
+              }
+              if (added.length) setBbmAttachments(prev => [...prev, ...added]);
+            }
+            if (Array.isArray(removedIds) && removedIds.length) {
+              for (const id of removedIds) {
+                try { await fileAPI.delete(id); } catch { void 0 }
+              }
+              setBbmAttachments(prev => prev.filter(a => !removedIds.includes(a.id)));
+            }
             const r = await updateBBMRecord(selectedDetail.id, payload);
             setIsEditModalOpen(false);
             setIsDetailModalOpen(false);

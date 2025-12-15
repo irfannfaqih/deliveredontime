@@ -315,7 +315,7 @@ export const Management = () => {
                         <div className="[font-family:'Inter',Helvetica] text-xs text-[#404040] break-words">{u.name}</div>
                         <span className={`inline-flex items-center px-2 py-1 rounded-[10px] border text-[10px] [font-family:'Inter',Helvetica] ${String(u.role)==='admin' ? 'border-[#e0e0e0] bg-[#fff3e0] text-[#fb8c00]' : 'border-[#e0e0e0] bg-[#e3f2fd] text-[#1976d2]'}`}>{u.role}</span>
                       </div>
-                      <div className="mt-1 [font-family:'Inter',Helvetica] text-[10px] text-[#6b6b6b] break-words">{u.email}</div>
+                      <div className="mt-1 [font-family:'Inter',Helvetica] text-[10px] text-[#6b6b6b] break-words text-left">{u.email}</div>
                       <div className="mt-2 flex items-center justify-between">
                         <button onClick={() => handleUpdateUser(u.id, { is_active: u.is_active ? 0 : 1 })} className={`inline-flex items-center gap-2 px-2 py-1 rounded-[10px] border text-[10px] ${u.is_active ? 'border-[#e0e0e0] bg-[#e8f5e9] text-[#2e7d32]' : 'border-[#e0e0e0] bg-[#f5f5f5] text-[#616161]'}`}>
                           <span>{u.is_active ? 'Active' : 'Inactive'}</span>
@@ -356,7 +356,7 @@ export const Management = () => {
                     filteredUsers.map((u) => (
                       <tr key={u.id} className="border-t border-[#f0f0f0]">
                         <td className="py-2 pr-4 [font-family:'Inter',Helvetica] text-xs sm:text-[12.8px] text-[#404040]">{u.name}</td>
-                        <td className="py-2 pr-4 [font-family:'Inter',Helvetica] text-xs sm:text-[12.8px] text-[#404040]">{u.email}</td>
+                        <td className="py-2 pr-4 [font-family:'Inter',Helvetica] text-xs sm:text-[12.8px] text-[#404040] text-left">{u.email}</td>
                         <td className="py-2 pr-4">
                           <span className={`inline-flex items-center px-2 py-1 rounded-[10px] border text-xs [font-family:'Inter',Helvetica] ${String(u.role)==='admin' ? 'border-[#e0e0e0] bg-[#fff3e0] text-[#fb8c00]' : 'border-[#e0e0e0] bg-[#e3f2fd] text-[#1976d2]'}`}>{u.role}</span>
                         </td>

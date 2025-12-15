@@ -313,7 +313,7 @@ export const Dashboard = () => {
                     alt={item.label}
                     className="absolute top-[14px] sm:top-4 lg:top-0 left-3 sm:left-4 lg:-left-2 w-[50px] h-[50px] sm:w-[55px] sm:h-[55px] lg:w-[70px] lg:h-[70px]"
                   />
-                  <div className="absolute top-[25px] left-1/2 -translate-x-1/2 h-[30px] sm:top-[30px] sm:left-[70px] sm:right-[65px] sm:translate-x-0 lg:top-[9px] lg:left-16 lg:right-[70px]" style={{ width: 'calc(100% - 130px)' }}>
+                  <div className="absolute top-[25px] left-1/2 -translate-x-1/2 h-[30px] sm:top-[30px] sm:left-[70px] sm:right-[65px] sm:translate-x-0 lg:top-[9px] lg:left-16 lg:right-[70px] w-[calc(100%-150px)] sm:w-[calc(100%-130px)] lg:w-[calc(100%-130px)]">
                     <div className="absolute top-[8px] sm:top-[10px] lg:top-px left-0 right-0 h-3 sm:h-4 lg:h-2 bg-[#f1f1f1] rounded-[12px] lg:rounded-[11.39px]" />
                     <div
                       className={`absolute top-[7px] sm:top-[9px] lg:top-0 left-px h-3 sm:h-4 lg:h-2 rounded-[10px] lg:rounded-[9.01px] ${item.gradientClass} transition-all duration-700 ease-out`}
@@ -323,7 +323,7 @@ export const Dashboard = () => {
                       {item.label}
                     </div>
                   </div>
-                  <div className="absolute top-1/2 -translate-y-1/2 sm:top-[5px] sm:translate-y-0 lg:top-0 right-4 sm:right-5 lg:right-0 font-[Suprema-Regular] text-[#696969] text-xl sm:text-2xl lg:text-[20.1px] font-bold">
+                  <div className="absolute top-1/2 -translate-y-1/2 sm:top-[5px] sm:translate-y-0 lg:top-0 right-4 sm:right-5 lg:right-0 font-[Suprema-Regular] text-[#696969] text-base sm:text-2xl lg:text-[20.1px] font-bold">
                     {item.percentage}%
                   </div>
                 </div>

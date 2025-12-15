@@ -193,7 +193,7 @@ export const Login = () => {
   
 
   return (
-    <main className="login-page relative flex items-center sm:items-center justify-start sm:justify-center min-h-screen w-screen bg-white overflow-hidden pt-20 pb-6">
+    <main className="login-page relative flex items-center sm:items-center justify-center sm:justify-center min-h-screen w-screen bg-white overflow-hidden pt-10 sm:pt-14 lg:pt-20 pb-6">
       
       
       {/* Background */}
@@ -301,37 +301,39 @@ export const Login = () => {
                   Password
                 </Label>
                 
-                <Input
-                  id="password"
-                  name="password"
-                  type={showPassword ? "text" : "password"}
-                  autoComplete="current-password"
-                  placeholder="••••••••"
-                  value={formData.password}
-                  onChange={handleInputChange}
-                  onKeyPress={handleKeyPress}
-                  className={cn(
-                    "w-full h-12 sm:h-[58px] rounded-lg border py-3 lg:pt-[25px] lg:pb-[10px] pl-4 pr-12 [font-family:'Zen_Kaku_Gothic_Antique',Helvetica] font-normal text-base",
-                    (validationErrors.password || loginError)
-                      ? "border-red-400 bg-red-50 focus:border-red-500 focus:ring-red-500" 
-                      : "border-[#bdbdbd] text-[#757575]"
-                  )}
-                  disabled={isLoading}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 mt-[5px] disabled:opacity-50"
-                  aria-label="Toggle password visibility"
-                  disabled={isLoading}
-                  tabIndex={-1}
-                >
-                  {showPassword ? (
-                    <EyeOffIcon className="w-4 h-4 text-[#757575]" />
-                  ) : (
-                    <EyeIcon className="w-4 h-4 text-[#757575]" />
-                  )}
-                </button>
+                <div className="relative">
+                  <Input
+                    id="password"
+                    name="password"
+                    type={showPassword ? "text" : "password"}
+                    autoComplete="current-password"
+                    placeholder="••••••••"
+                    value={formData.password}
+                    onChange={handleInputChange}
+                    onKeyPress={handleKeyPress}
+                    className={cn(
+                      "w-full h-12 sm:h-[58px] rounded-lg border py-3 lg:pt-[25px] lg:pb-[10px] pl-4 pr-12 [font-family:'Zen_Kaku_Gothic_Antique',Helvetica] font-normal text-base",
+                      (validationErrors.password || loginError)
+                        ? "border-red-400 bg-red-50 focus:border-red-500 focus:ring-red-500" 
+                        : "border-[#bdbdbd] text-[#757575]"
+                    )}
+                    disabled={isLoading}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 disabled:opacity-50"
+                    aria-label="Toggle password visibility"
+                    disabled={isLoading}
+                    tabIndex={-1}
+                  >
+                    {showPassword ? (
+                      <EyeOffIcon className="w-4 h-4 text-[#757575]" />
+                    ) : (
+                      <EyeIcon className="w-4 h-4 text-[#757575]" />
+                    )}
+                  </button>
+                </div>
                 {validationErrors.password && (
                   <p className="mt-1 text-xs text-red-600 [font-family:'Zen_Kaku_Gothic_Antique',Helvetica]">
                     {validationErrors.password}
