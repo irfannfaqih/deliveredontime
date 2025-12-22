@@ -50,23 +50,30 @@ const navigationItems = [
 
 const formatDateText = (d) => {
   if (!d) return "";
+  const s = String(d);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+    const [yyyy, mm, dd] = s.split("-");
+    const months = ["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Agu","Sep","Okt","Nov","Des"];
+    return `${Number(dd)} ${months[Number(mm)-1]} ${Number(yyyy)}`;
+  }
   try {
     const dt = new Date(d);
-    const day = dt.getDate();
     const months = ["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Agu","Sep","Okt","Nov","Des"];
-    return `${day} ${months[dt.getMonth()]} ${dt.getFullYear()}`;
-  } catch { return String(d); }
+    return `${dt.getDate()} ${months[dt.getMonth()]} ${dt.getFullYear()}`;
+  } catch { return s; }
 };
 
 const toLocalYMD = (d) => {
   if (!d) return "";
+  const s = String(d);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
   try {
     const dt = new Date(d);
     const yyyy = dt.getFullYear();
     const mm = String(dt.getMonth() + 1).padStart(2, '0');
     const dd = String(dt.getDate()).padStart(2, '0');
     return `${yyyy}-${mm}-${dd}`;
-  } catch { return String(d).slice(0,10); }
+  } catch { return s.slice(0,10); }
 };
 
 const formatRupiah = (n) => {
@@ -748,7 +755,7 @@ export const Report = () => {
       totalKm: r.kmAwal != null && r.kmAkhir != null ? (r.kmAkhir - r.kmAwal) : null,
       jumlahBbm: r.jumlahBbm,
     }));
-    rows.sort((a,b) => (new Date(a.rawDate) - new Date(b.rawDate)) || String(a.messenger).localeCompare(String(b.messenger)));
+    rows.sort((a,b) => a.rawDate.localeCompare(b.rawDate) || String(a.messenger).localeCompare(String(b.messenger)));
     return rows.reverse();
   };
 
@@ -774,7 +781,7 @@ export const Report = () => {
     return matchesKmAwal && matchesKmAkhir && matchesInvoice && matchesDate && matchesMessenger;
   });
 
-  const displayedData = filteredData.slice(0, entriesPerPage);
+  const displayedData = entriesPerPage === 'all' ? filteredData : filteredData.slice(0, Number(entriesPerPage) || 0);
 
   const _handleView = async (rawDate) => {
     try {
@@ -1247,13 +1254,17 @@ export const Report = () => {
               </span>
               <select
                 value={entriesPerPage.toString()}
-                onChange={(e) => setEntriesPerPage(Number(e.target.value))}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setEntriesPerPage(v === 'all' ? 'all' : Number(v));
+                }}
                 className="flex items-center gap-[9.21px] px-[4.6px] py-[1.53px] bg-[#fbaf77] rounded-[9.56px] h-[17.54px] border-none [font-family:'Quicksand',Helvetica] font-bold text-white text-[11.4px] tracking-[0] leading-[normal]"
               >
                 <option value="10">10</option>
                 <option value="25">25</option>
                 <option value="50">50</option>
                 <option value="100">100</option>
+                <option value="all">All</option>
               </select>
               <span className="[font-family:'Suprema-SemiBold',Helvetica] font-semibold text-black text-[11.4px] tracking-[0] leading-[normal]">
                 Entries

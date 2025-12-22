@@ -227,6 +227,9 @@ router.get('/profile', requireAuth, async (req, res) => {
 router.put('/profile', requireAuth, async (req, res) => {
   try {
     const { name, phone, profile_image, vehicle_info, status, is_active, email } = req.body || {}
+    const userId = req.user.sub
+    const currentRows = await query('SELECT email FROM users WHERE id = ?', [userId])
+    const currentEmail = currentRows.length ? String(currentRows[0].email || '') : ''
 
     // Jika user ingin mengganti email, validasi format dan cek duplikasi
     if (email) {
@@ -242,31 +245,34 @@ router.put('/profile', requireAuth, async (req, res) => {
       if (exists.length) {
         return res.status(409).json({ error: 'Email sudah digunakan' })
       }
+      await query('UPDATE users SET email = ? WHERE id = ?', [emailStr, userId])
     }
 
     await query(
-      'UPDATE users SET name = COALESCE(?, name), email = COALESCE(?, email), phone = COALESCE(?, phone), profile_image = COALESCE(?, profile_image), vehicle_info = COALESCE(?, vehicle_info), status = COALESCE(?, status), is_active = COALESCE(?, is_active) WHERE id = ?',
+      'UPDATE users SET name = COALESCE(?, name), phone = COALESCE(?, phone), profile_image = COALESCE(?, profile_image), vehicle_info = COALESCE(?, vehicle_info), status = COALESCE(?, status), is_active = COALESCE(?, is_active) WHERE id = ?',
       [
-        name || null,
-        email || null,
+        (typeof name === 'string' ? name.trim() : null) || null,
         phone || null,
         profile_image || null,
         vehicle_info || null,
         status || null,
         typeof is_active === 'number' ? is_active : null,
-        req.user.sub
+        userId
       ]
     )
 
-    const rows = await query(
+    const rowsAfter = await query(
       'SELECT id, name, email, role, status, phone, profile_image, vehicle_info, is_active FROM users WHERE id = ?',
-      [req.user.sub]
+      [userId]
     )
+
+    const nextUser = rowsAfter[0]
+    const requestedEmail = typeof email === 'string' ? email.trim() : null
 
     res.json({
       success: true,
       message: 'Profile berhasil diupdate',
-      data: rows[0]
+      data: nextUser
     })
   } catch (e) {
     console.error('Update profile error:', e)

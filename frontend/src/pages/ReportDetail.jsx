@@ -44,12 +44,25 @@ const navigationItems = [
 
 const formatDateText = (d) => {
   if (!d) return "";
+  const s = String(d);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+    const [yyyy, mm, dd] = s.split("-");
+    const months = ["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Agu","Sep","Okt","Nov","Des"];
+    return `${Number(dd)} ${months[Number(mm)-1]} ${Number(yyyy)}`;
+  }
   try {
     const dt = new Date(d);
-    const day = dt.getDate();
     const months = ["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Agu","Sep","Okt","Nov","Des"];
-    return `${day} ${months[dt.getMonth()]} ${dt.getFullYear()}`;
-  } catch { return String(d); }
+    return `${dt.getDate()} ${months[dt.getMonth()]} ${dt.getFullYear()}`;
+  } catch { return s; }
+};
+
+const computeStatus = (sent, received) => {
+  if (!sent || !received) return "Pending";
+  try {
+    const days = Math.floor((new Date(received).getTime() - new Date(sent).getTime()) / (1000 * 60 * 60 * 24));
+    return days > 2 ? "Out of time" : "On time";
+  } catch { return "Pending" }
 };
 
 // Detail Delivered Modal Component
@@ -225,7 +238,7 @@ export const ReportDetail = () => {
     messenger: r.messenger || "",
     recipient: r.recipient || "",
     notes: r.notes || "",
-    status: r.status || "",
+    status: r.status || computeStatus(r.sentDate || r.sent_date, r.deliveredDate || r.delivered_date),
   })) : [];
   const filteredByMessenger = selectedMessenger
     ? sourceData.filter(r => String(r.messenger || '').toLowerCase() === String(selectedMessenger).toLowerCase())

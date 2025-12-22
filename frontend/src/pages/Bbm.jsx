@@ -219,9 +219,21 @@ const AttachmentPreviewModal = ({ isOpen, att, onClose }) => {
 };
 
 const EditBBMModal = ({ isOpen, onClose, data, onSave, attachments, onPreview }) => {
+  const formatDateInput = (d) => {
+    if (!d) return '';
+    const s = String(d);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+    try {
+      const dt = new Date(d);
+      const yyyy = dt.getFullYear();
+      const mm = String(dt.getMonth() + 1).padStart(2, '0');
+      const dd = String(dt.getDate()).padStart(2, '0');
+      return `${yyyy}-${mm}-${dd}`;
+    } catch { return s.slice(0, 10); }
+  };
   const base = data || {};
   const [form, setForm] = useState({
-    tanggal: base.tanggalRaw || '',
+    tanggal: formatDateInput(base.tanggalRaw || ''),
     kilometer_awal: Number(base.kilometerAwal || 0) || 0,
     kilometer_akhir: Number(base.kilometerAkhir || 0) || 0,
     jumlah_bbm_rupiah: Number(base.jumlahBbmRupiah || 0) || 0,
@@ -237,7 +249,7 @@ const EditBBMModal = ({ isOpen, onClose, data, onSave, attachments, onPreview })
   useEffect(() => {
     if (isOpen && data) {
       setForm({
-        tanggal: data.tanggalRaw || '',
+        tanggal: formatDateInput(data.tanggalRaw || ''),
         kilometer_awal: Number(data.kilometerAwal || 0) || 0,
         kilometer_akhir: Number(data.kilometerAkhir || 0) || 0,
         jumlah_bbm_rupiah: Number(data.jumlahBbmRupiah || 0) || 0,
@@ -321,16 +333,7 @@ const EditBBMModal = ({ isOpen, onClose, data, onSave, attachments, onPreview })
     };
     onSave && onSave(payload, stagedFiles, removedIds);
   };
-  const formatDateInput = (d) => {
-    if (!d) return '';
-    try {
-      const dt = new Date(d);
-      const yyyy = dt.getFullYear();
-      const mm = String(dt.getMonth() + 1).padStart(2, '0');
-      const dd = String(dt.getDate()).padStart(2, '0');
-      return `${yyyy}-${mm}-${dd}`;
-    } catch { return String(d); }
-  };
+
   const handleSelectFiles = (e) => {
     const files = Array.from(e.target.files || []);
     if (!files.length) return;
@@ -541,23 +544,30 @@ export const BBM = () => {
 
   const formatDateText = (d) => {
     if (!d) return "";
+    const s = String(d);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+      const [yyyy, mm, dd] = s.split("-");
+      const months = ["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Agu","Sep","Okt","Nov","Des"];
+      return `${Number(dd)} ${months[Number(mm)-1]} ${Number(yyyy)}`;
+    }
     try {
       const dt = new Date(d);
-      const day = dt.getDate();
       const months = ["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Agu","Sep","Okt","Nov","Des"];
-      return `${day} ${months[dt.getMonth()]} ${dt.getFullYear()}`;
-    } catch { return String(d); }
+      return `${dt.getDate()} ${months[dt.getMonth()]} ${dt.getFullYear()}`;
+    } catch { return s; }
   };
 
   const toLocalYMD = (d) => {
     if (!d) return "";
+    const s = String(d);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
     try {
       const dt = new Date(d);
       const yyyy = dt.getFullYear();
       const mm = String(dt.getMonth() + 1).padStart(2, '0');
       const dd = String(dt.getDate()).padStart(2, '0');
       return `${yyyy}-${mm}-${dd}`;
-    } catch { return String(d).slice(0, 10); }
+    } catch { return s.slice(0, 10); }
   };
 
   const handleDateClick = async (row) => {
@@ -617,7 +627,7 @@ export const BBM = () => {
     } catch (e) { void e }
   };
 
-  const displayedData = filteredData.slice(0, entriesPerPage);
+  const displayedData = entriesPerPage === 'all' ? filteredData : filteredData.slice(0, Number(entriesPerPage) || 0);
 
   return (
     <div className="bg-[#f5f5f5] w-full min-h-screen flex">
@@ -1028,13 +1038,17 @@ export const BBM = () => {
               </span>
               <select
                 value={entriesPerPage.toString()}
-                onChange={(e) => setEntriesPerPage(Number(e.target.value))}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setEntriesPerPage(v === 'all' ? 'all' : Number(v));
+                }}
                 className="flex items-center gap-[9.21px] px-[4.6px] py-[1.53px] bg-[#fbaf77] rounded-[9.56px] h-[17.54px] border-none [font-family:'Quicksand',Helvetica] font-bold text-white text-[11.4px] tracking-[0] leading-[normal]"
               >
                 <option value="10">10</option>
                 <option value="25">25</option>
                 <option value="50">50</option>
                 <option value="100">100</option>
+                <option value="all">All</option>
               </select>
               <span className="[font-family:'Suprema-SemiBold',Helvetica] font-semibold text-black text-[11.4px] tracking-[0] leading-[normal]">
                 Entries
@@ -1067,6 +1081,7 @@ export const BBM = () => {
       />
 
       <EditBBMModal 
+        key={isEditModalOpen ? 'open' : 'closed'}
         isOpen={isEditModalOpen}
         onClose={() => setIsEditModalOpen(false)}
         data={selectedDetail}
@@ -1074,6 +1089,23 @@ export const BBM = () => {
         onPreview={handlePreview}
         onSave={async (payload, newFiles, removedIds) => {
           try {
+            const originalDateYMD = (() => {
+              const d = selectedDetail?.tanggalRaw || '';
+              const s = String(d);
+              if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+              try {
+                const dt = new Date(d);
+                const yyyy = dt.getUTCFullYear();
+                const mm = String(dt.getUTCMonth() + 1).padStart(2, '0');
+                const dd = String(dt.getUTCDate()).padStart(2, '0');
+                return `${yyyy}-${mm}-${dd}`;
+              } catch { return s.slice(0, 10); }
+            })();
+            if (String(payload.tanggal || '') === originalDateYMD) {
+              delete payload.tanggal;
+            } else if (payload.tanggal) {
+              payload.tanggal = String(payload.tanggal).slice(0, 10);
+            }
             if (Array.isArray(newFiles) && newFiles.length) {
               const added = [];
               for (const f of newFiles) {

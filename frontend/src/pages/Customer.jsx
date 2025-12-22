@@ -929,7 +929,7 @@ export const Customer = () => {
     return matchesNama && matchesNoHp && matchesAlamat;
   });
 
-  const displayedData = filteredData.slice(0, entriesPerPage);
+  const displayedData = entriesPerPage === 'all' ? filteredData : filteredData.slice(0, Number(entriesPerPage) || 0);
 
   return (
     <div className="bg-[#f5f5f5] w-full min-h-screen flex">
@@ -1336,13 +1336,17 @@ export const Customer = () => {
               </span>
               <select
                 value={entriesPerPage.toString()}
-                onChange={(e) => setEntriesPerPage(Number(e.target.value))}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setEntriesPerPage(v === 'all' ? 'all' : Number(v));
+                }}
                 className="flex items-center gap-[9.21px] px-[4.6px] py-[1.53px] bg-[#fbaf77] rounded-[9.56px] h-[17.54px] border-none [font-family:'Quicksand',Helvetica] font-bold text-white text-[11.4px] tracking-[0] leading-[normal]"
               >
                 <option value="10">10</option>
                 <option value="25">25</option>
                 <option value="50">50</option>
                 <option value="100">100</option>
+                <option value="all">All</option>
               </select>
               <span className="[font-family:'Suprema-SemiBold',Helvetica] font-semibold text-black text-[11.4px] tracking-[0] leading-[normal]">
                 Entries

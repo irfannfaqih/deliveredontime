@@ -479,7 +479,7 @@ const DeliveredInput = () => {
                 htmlFor="attachment"
                 className="[font-family:'Inter',Helvetica] font-medium text-black text-xs sm:text-sm tracking-[0] leading-[normal]"
               >
-                Attachment <span className="text-red-600 ml-1">*</span>
+                Attachment
               </label>
               <div 
                 onClick={() => setIsModalOpen(true)}

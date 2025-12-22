@@ -25,7 +25,12 @@ router.get('/', requireAuth, async (req, res) => {
     const params = []
     const clauses = []
 
-    if (date) { clauses.push('sent_date = ?'); params.push(date) }
+    if (date) { 
+      // Fix for timezone: Data is stored in UTC (or similar), so "2025-12-16 17:00" is actually "2025-12-17" in WIB.
+      // We shift the DB time by +7 hours before taking the DATE part to match the frontend's WIB display.
+      clauses.push('DATE(DATE_ADD(sent_date, INTERVAL 7 HOUR)) = ?')
+      params.push(date) 
+    }
     if (messenger) { clauses.push('LOWER(messenger) = LOWER(?)'); params.push(messenger) }
 
     if (clauses.length) sql += ' WHERE ' + clauses.join(' AND ')

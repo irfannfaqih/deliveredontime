@@ -212,33 +212,26 @@ const DetailModal = ({ isOpen, onClose, data, attachments, onDelete, onEdit, onP
 const EditModal = ({ isOpen, onClose, data, messengerOptions, onSave, attachments, onPreview }) => {
   const formatDateInput = (d) => {
     if (!d) return ''
+    const s = String(d)
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s
     try {
       const dt = new Date(d)
       const yyyy = dt.getFullYear()
       const mm = String(dt.getMonth() + 1).padStart(2, '0')
       const dd = String(dt.getDate()).padStart(2, '0')
       return `${yyyy}-${mm}-${dd}`
-    } catch { return String(d).slice(0,10) }
+    } catch { return s.slice(0, 10) }
   }
-  const [form, setForm] = useState(() => ({
-    invoice: data?.invoice || '',
-    customer: data?.customer || '',
-    item: data?.item || '',
-    sentDate: formatDateInput(data?.sentDateRaw || ''),
-    deliveredDate: formatDateInput(data?.deliveredDateRaw || ''),
-    messenger: data?.messenger || '',
-    recipient: data?.recipient || '',
-    notes: data?.notes || '',
-    status: data?.status || (() => {
-      const s = formatDateInput(data?.sentDateRaw || '')
-      const r = formatDateInput(data?.deliveredDateRaw || '')
-      if (!s || !r) return 'Pending'
-      try {
-        const days = Math.floor((new Date(s).getTime() - new Date(r).getTime()) / (1000*60*60*24))
-        return days > 2 ? 'Out of time' : 'On time'
-      } catch { return 'Pending' }
-    })(),
-  }))
+  const [form, setForm] = useState({
+    invoice: '', customer: '', item: '', sentDate: '', deliveredDate: '',
+    messenger: '', recipient: '', notes: '', status: 'Pending'
+  })
+  const [errors, setErrors] = useState({})
+  const [imageFail, setImageFail] = useState({})
+  const [stagedFiles, setStagedFiles] = useState([])
+  const [stagedUrls, setStagedUrls] = useState([])
+  const [removedIds, setRemovedIds] = useState([])
+  const [isSaving, setIsSaving] = useState(false)
 
   useEffect(() => {
     if (isOpen) {
@@ -261,6 +254,7 @@ const EditModal = ({ isOpen, onClose, data, messengerOptions, onSave, attachment
           } catch { return 'Pending' }
         })(),
       })
+      setErrors({})
     }
   }, [isOpen, data])
 
@@ -273,18 +267,49 @@ const EditModal = ({ isOpen, onClose, data, messengerOptions, onSave, attachment
     }
   }, [isOpen, data])
 
-  const setVal = (k, v) => setForm(prev => ({ ...prev, [k]: v }))
-  
-  const [imageFail, setImageFail] = useState({})
-  const [stagedFiles, setStagedFiles] = useState([])
-  const [stagedUrls, setStagedUrls] = useState([])
-  const [removedIds, setRemovedIds] = useState([])
-  const [isSaving, setIsSaving] = useState(false)
   useEffect(() => {
     return () => {
       stagedUrls.forEach(u => URL.revokeObjectURL(u))
     }
   }, [stagedUrls])
+
+  const setVal = (k, v) => {
+    setForm(prev => ({ ...prev, [k]: v }))
+    if (errors[k]) setErrors(prev => ({ ...prev, [k]: undefined }))
+  }
+
+  const validate = () => {
+    const next = {}
+    if (!form.invoice) next.invoice = 'Wajib diisi'
+    if (!form.customer) next.customer = 'Wajib diisi'
+    if (!form.item) next.item = 'Wajib diisi'
+    if (!form.sentDate) next.sentDate = 'Wajib diisi'
+    if (!form.deliveredDate) next.deliveredDate = 'Wajib diisi'
+    if (!form.messenger) next.messenger = 'Wajib diisi'
+    
+    if (form.sentDate && form.deliveredDate) {
+      if (form.sentDate < form.deliveredDate) {
+        next.sentDate = 'Tanggal kirim tidak boleh kurang dari tanggal terima'
+      }
+    }
+    return next
+  }
+
+  const handleSave = async () => {
+    const next = validate()
+    setErrors(next)
+    if (Object.keys(next).length > 0) return
+    
+    if (isSaving) return
+    setIsSaving(true)
+    try {
+      await onSave(form, stagedFiles, removedIds)
+      setStagedFiles([])
+      setStagedUrls([])
+      setRemovedIds([])
+    } catch { /* ignore */ }
+    setIsSaving(false)
+  }
 
   if (!isOpen || !data) return null;
   const handleSelectFiles = (e) => {
@@ -312,15 +337,18 @@ const EditModal = ({ isOpen, onClose, data, messengerOptions, onSave, attachment
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
           <div className="flex flex-col gap-2">
             <label className="[font-family:'Inter',Helvetica] font-medium text-black text-xs">No Invoice</label>
-            <input value={form.invoice} onChange={e => setVal('invoice', e.target.value)} className="w-full px-3 py-3 bg-white rounded-[10.26px] border-[0.85px] border-[#cccccccc] [font-family:'Inter',Helvetica] text-xs" />
+            <input value={form.invoice} onChange={e => setVal('invoice', e.target.value)} className={`w-full px-3 py-3 bg-white rounded-[10.26px] border-[0.85px] ${errors.invoice ? 'border-red-500' : 'border-[#cccccccc]'} [font-family:'Inter',Helvetica] text-xs`} />
+            {errors.invoice && <span className="text-red-600 text-[10px]">{errors.invoice}</span>}
           </div>
           <div className="flex flex-col gap-2">
             <label className="[font-family:'Inter',Helvetica] font-medium text-black text-xs">Nama Customer</label>
-            <input value={form.customer} onChange={e => setVal('customer', e.target.value)} className="w-full px-3 py-3 bg-white rounded-[10.26px] border-[0.85px] border-[#cccccccc] [font-family:'Inter',Helvetica] text-xs" />
+            <input value={form.customer} onChange={e => setVal('customer', e.target.value)} className={`w-full px-3 py-3 bg-white rounded-[10.26px] border-[0.85px] ${errors.customer ? 'border-red-500' : 'border-[#cccccccc]'} [font-family:'Inter',Helvetica] text-xs`} />
+            {errors.customer && <span className="text-red-600 text-[10px]">{errors.customer}</span>}
           </div>
           <div className="flex flex-col gap-2">
             <label className="[font-family:'Inter',Helvetica] font-medium text-black text-xs">Nama Item</label>
-            <input value={form.item} onChange={e => setVal('item', e.target.value)} className="w-full px-3 py-3 bg-white rounded-[10.26px] border-[0.85px] border-[#cccccccc] [font-family:'Inter',Helvetica] text-xs" />
+            <input value={form.item} onChange={e => setVal('item', e.target.value)} className={`w-full px-3 py-3 bg-white rounded-[10.26px] border-[0.85px] ${errors.item ? 'border-red-500' : 'border-[#cccccccc]'} [font-family:'Inter',Helvetica] text-xs`} />
+            {errors.item && <span className="text-red-600 text-[10px]">{errors.item}</span>}
           </div>
           <div className="flex flex-col gap-2">
             <label className="[font-family:'Inter',Helvetica] font-medium text-black text-xs">Tanggal Dikirim</label>
@@ -331,8 +359,9 @@ const EditModal = ({ isOpen, onClose, data, messengerOptions, onSave, attachment
                 <line x1="8" y1="2" x2="8" y2="6"></line>
                 <line x1="3" y1="10" x2="21" y2="10"></line>
               </svg>
-              <input type="date" value={form.sentDate || ''} onChange={e => setVal('sentDate', e.target.value)} className="w-full pl-[44px] pr-[13.68px] py-[17.1px] h-auto bg-white rounded-[10.26px] border-[0.85px] border-[#cccccccc] [font-family:'Inter',Helvetica] font-medium text-black text-[10.3px] outline-none focus:border-[#197bbd] transition-colors" />
+              <input type="date" value={form.sentDate || ''} onChange={e => setVal('sentDate', e.target.value)} className={`w-full pl-[44px] pr-[13.68px] py-[17.1px] h-auto bg-white rounded-[10.26px] border-[0.85px] ${errors.sentDate ? 'border-red-500' : 'border-[#cccccccc]'} [font-family:'Inter',Helvetica] font-medium text-black text-[10.3px] outline-none focus:border-[#197bbd] transition-colors`} />
             </div>
+            {errors.sentDate && <span className="text-red-600 text-[10px]">{errors.sentDate}</span>}
           </div>
           <div className="flex flex-col gap-2">
             <label className="[font-family:'Inter',Helvetica] font-medium text-black text-xs">Tanggal Diterima</label>
@@ -343,13 +372,14 @@ const EditModal = ({ isOpen, onClose, data, messengerOptions, onSave, attachment
                 <line x1="8" y1="2" x2="8" y2="6"></line>
                 <line x1="3" y1="10" x2="21" y2="10"></line>
               </svg>
-              <input type="date" value={form.deliveredDate || ''} onChange={e => setVal('deliveredDate', e.target.value)} className="w-full pl-[44px] pr-[13.68px] py-[17.1px] h-auto bg-white rounded-[10.26px] border-[0.85px] border-[#cccccccc] [font-family:'Inter',Helvetica] font-medium text-black text-[10.3px] outline-none focus:border-[#197bbd] transition-colors" />
+              <input type="date" value={form.deliveredDate || ''} onChange={e => setVal('deliveredDate', e.target.value)} className={`w-full pl-[44px] pr-[13.68px] py-[17.1px] h-auto bg-white rounded-[10.26px] border-[0.85px] ${errors.deliveredDate ? 'border-red-500' : 'border-[#cccccccc]'} [font-family:'Inter',Helvetica] font-medium text-black text-[10.3px] outline-none focus:border-[#197bbd] transition-colors`} />
             </div>
+            {errors.deliveredDate && <span className="text-red-600 text-[10px]">{errors.deliveredDate}</span>}
           </div>
           <div className="flex flex-col gap-2">
             <label className="[font-family:'Inter',Helvetica] font-medium text-black text-xs">Nama Messenger</label>
             <div className="relative">
-              <select value={form.messenger} onChange={e => setVal('messenger', e.target.value)} className="w-full pl-3 pr-12 py-3 bg-white rounded-[10.26px] border-[0.85px] border-[#cccccccc] [font-family:'Inter',Helvetica] text-xs appearance-none">
+              <select value={form.messenger} onChange={e => setVal('messenger', e.target.value)} className={`w-full pl-3 pr-12 py-3 bg-white rounded-[10.26px] border-[0.85px] ${errors.messenger ? 'border-red-500' : 'border-[#cccccccc]'} [font-family:'Inter',Helvetica] text-xs appearance-none`}>
                 <option value="">- Pilih Messenger -</option>
                 {messengerOptions.map(m => (
                   <option key={m} value={m}>{m}</option>
@@ -359,22 +389,12 @@ const EditModal = ({ isOpen, onClose, data, messengerOptions, onSave, attachment
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
               </svg>
             </div>
+            {errors.messenger && <span className="text-red-600 text-[10px]">{errors.messenger}</span>}
           </div>
           <div className="flex flex-col gap-2">
             <label className="[font-family:'Inter',Helvetica] font-medium text-black text-xs">Nama Penerima</label>
-            <input value={form.recipient} onChange={e => setVal('recipient', e.target.value)} className="w-full px-3 py-3 bg-white rounded-[10.26px] border-[0.85px] border-[#cccccccc] [font-family:'Inter',Helvetica] text-xs" />
-          </div>
-          <div className="flex flex-col gap-2">
-            <label className="[font-family:'Inter',Helvetica] font-medium text-black text-xs">Status</label>
-            <div className="relative">
-              <select value={form.status} onChange={e => setVal('status', e.target.value)} className="w-full pl-3 pr-12 py-3 bg-white rounded-[10.26px] border-[0.85px] border-[#cccccccc] [font-family:'Inter',Helvetica] text-xs appearance-none">
-                <option value="On time">On time</option>
-                <option value="Late">Late</option>
-              </select>
-              <svg className="pointer-events-none absolute right-5 top-1/2 -translate-y-1/2 w-5 h-5 text-[#9e9e9e]" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
-              </svg>
-            </div>
+            <input value={form.recipient} onChange={e => setVal('recipient', e.target.value)} className={`w-full px-3 py-3 bg-white rounded-[10.26px] border-[0.85px] ${errors.recipient ? 'border-red-500' : 'border-[#cccccccc]'} [font-family:'Inter',Helvetica] text-xs`} />
+            {errors.recipient && <span className="text-red-600 text-[10px]">{errors.recipient}</span>}
           </div>
           <div className="sm:col-span-2 flex flex-col gap-2">
             <label className="[font-family:'Inter',Helvetica] font-medium text-black text-xs">Keterangan</label>
@@ -440,17 +460,7 @@ const EditModal = ({ isOpen, onClose, data, messengerOptions, onSave, attachment
 
         <div className="border-t border-[#e5e5e5] pt-4 mt-4 flex flex-col sm:flex-row items-center justify-end gap-3">
           <button
-            onClick={async () => {
-              if (isSaving) return
-              setIsSaving(true)
-              try {
-                await onSave(form, stagedFiles, removedIds)
-                setStagedFiles([])
-                setStagedUrls([])
-                setRemovedIds([])
-              } catch { /* keep staged if failed */ }
-              setIsSaving(false)
-            }}
+            onClick={handleSave}
             disabled={isSaving}
             className={`bg-[#197bbd] hover:bg-[#1569a3] text-white [font-family:'Quicksand',Helvetica] font-bold text-[12px] px-6 py-3 rounded-[12.45px] h-auto transition-all ${isSaving ? 'opacity-60 cursor-not-allowed' : ''}`}
           >
@@ -1064,22 +1074,29 @@ export const Delivered = () => {
   const messengerOptions = Array.from(new Set((Array.isArray(deliveries) ? deliveries : []).map(d => d.messenger))).filter(Boolean);
   const formatDateText = (d) => {
     if (!d) return "";
+    const s = String(d);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+      const [yyyy, mm, dd] = s.split("-");
+      const months = ["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Agu","Sep","Okt","Nov","Des"];
+      return `${Number(dd)} ${months[Number(mm)-1]} ${Number(yyyy)}`;
+    }
     try {
       const dt = new Date(d);
-      const day = dt.getDate();
       const months = ["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Agu","Sep","Okt","Nov","Des"];
-      return `${day} ${months[dt.getMonth()]} ${dt.getFullYear()}`;
-    } catch { return String(d); }
+      return `${dt.getDate()} ${months[dt.getMonth()]} ${dt.getFullYear()}`;
+    } catch { return s; }
   };
   const toLocalYMD = (d) => {
     if (!d) return "";
+    const s = String(d);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
     try {
       const dt = new Date(d);
       const yyyy = dt.getFullYear();
       const mm = String(dt.getMonth() + 1).padStart(2, '0');
       const dd = String(dt.getDate()).padStart(2, '0');
       return `${yyyy}-${mm}-${dd}`;
-    } catch { return String(d).slice(0,10); }
+    } catch { return s.slice(0,10); }
   };
 
   const sourceData = Array.isArray(deliveries) ? deliveries.map(r => ({
@@ -1126,7 +1143,7 @@ export const Delivered = () => {
     return matchesCustomer && matchesInvoice && matchesItem && matchesDate && matchesStatus;
   });
 
-  const displayedData = filteredData.slice(0, entriesPerPage);
+  const displayedData = entriesPerPage === 'all' ? filteredData : filteredData.slice(0, Number(entriesPerPage) || 0);
 
   return (
     <div className="bg-[#f5f5f5] w-full min-h-screen flex">
@@ -1583,13 +1600,17 @@ export const Delivered = () => {
               </span>
               <select
                 value={entriesPerPage.toString()}
-                onChange={(e) => setEntriesPerPage(Number(e.target.value))}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setEntriesPerPage(v === 'all' ? 'all' : Number(v));
+                }}
                 className="flex items-center gap-[9.21px] px-[4.6px] py-[1.53px] bg-[#fbaf77] rounded-[9.56px] h-[17.54px] border-none [font-family:'Quicksand',Helvetica] font-bold text-white text-[11.4px] tracking-[0] leading-[normal]"
               >
                 <option value="10">10</option>
                 <option value="25">25</option>
                 <option value="50">50</option>
                 <option value="100">100</option>
+                <option value="all">All</option>
               </select>
               <span className="[font-family:'Suprema-SemiBold',Helvetica] font-semibold text-black text-[11.4px] tracking-[0] leading-[normal]">
                 Entries
@@ -1617,6 +1638,7 @@ export const Delivered = () => {
       />
 
       <EditModal
+        key={isEditModalOpen ? 'open' : 'closed'}
         isOpen={isEditModalOpen}
         onClose={() => setIsEditModalOpen(false)}
         data={selectedDetail}
@@ -1625,6 +1647,34 @@ export const Delivered = () => {
         onSave={async (payload, newFiles, removedIds) => {
           if (!selectedDetail?.id) return;
           const { status: _STATUS, ...rest } = payload || {};
+          const originalSent = (() => {
+            const d = selectedDetail?.sentDateRaw || '';
+            const s = String(d);
+            if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+            try {
+              const dt = new Date(d);
+              const yyyy = dt.getFullYear();
+              const mm = String(dt.getMonth() + 1).padStart(2, '0');
+              const dd = String(dt.getDate()).padStart(2, '0');
+              return `${yyyy}-${mm}-${dd}`;
+            } catch { return s.slice(0, 10); }
+          })();
+          const originalDelivered = (() => {
+            const d = selectedDetail?.deliveredDateRaw || '';
+            const s = String(d);
+            if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+            try {
+              const dt = new Date(d);
+              const yyyy = dt.getFullYear();
+              const mm = String(dt.getMonth() + 1).padStart(2, '0');
+              const dd = String(dt.getDate()).padStart(2, '0');
+              return `${yyyy}-${mm}-${dd}`;
+            } catch { return s.slice(0, 10); }
+          })();
+          if (String(rest.sentDate || '') === originalSent) delete rest.sentDate;
+          if (String(rest.deliveredDate || '') === originalDelivered) delete rest.deliveredDate;
+          if (rest.sentDate) rest.sentDate = String(rest.sentDate).slice(0, 10);
+          if (rest.deliveredDate) rest.deliveredDate = String(rest.deliveredDate).slice(0, 10);
           if (Array.isArray(newFiles) && newFiles.length) {
             const added = []
             for (const f of newFiles) {

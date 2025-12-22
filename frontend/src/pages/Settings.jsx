@@ -221,17 +221,27 @@ export const Settings = () => {
 
   const handleSaveProfile = async () => {
     try {
-      const payload = { name: formData.fullName, email: formData.email };
+      const payload = { 
+        name: (formData.fullName || '').trim(), 
+        email: (formData.email || '').trim() 
+      };
       
       const result = await updateProfile(payload);
       if (result?.success) {
+        const updated = result?.data || {};
+        setFormData(prev => ({
+          ...prev,
+          fullName: updated.name ?? prev.fullName,
+          email: updated.email ?? prev.email,
+          role: updated.role ?? prev.role
+        }));
         setSuccessMessage("Profile updated successfully!");
       } else {
-        setSuccessMessage(result?.error || "Failed to update profile");
+        setSuccessMessage("Failed: " + (result?.error || "Update profile failed"));
       }
     } catch (error) {
       console.error(error);
-      setSuccessMessage("Failed to update profile");
+      setSuccessMessage("Failed: " + (error.message || "An unexpected error occurred"));
     } finally {
       setTimeout(() => setSuccessMessage(""), 3000);
     }

@@ -93,9 +93,16 @@ export const useAuth = () => {
   const updateProfile = async (profileData) => {
     try {
       setIsLoading(true);
-      await authAPI.updateProfile(profileData);
-      await checkAuthStatus();
-      return { success: true };
+      const result = await authAPI.updateProfile(profileData);
+      const success = !!result?.success;
+      const nextUser = result?.data;
+      
+      if (success && nextUser) {
+        setUser(nextUser);
+        localStorage.setItem('user', JSON.stringify(nextUser));
+      }
+      
+      return { success, data: nextUser, error: success ? null : (result?.error || null) };
     } catch (error) {
       const errorMessage = handleApiError(error);
       setError(errorMessage);

@@ -9,7 +9,8 @@ const pool = mysql.createPool({
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME,
-  connectionLimit: Number(process.env.DB_CONNECTION_LIMIT || 10)
+  connectionLimit: Number(process.env.DB_CONNECTION_LIMIT || 10),
+  dateStrings: ['DATE']
 })
 
 export const query = async (sql, params = []) => {

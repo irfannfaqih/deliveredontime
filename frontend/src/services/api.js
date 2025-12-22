@@ -149,7 +149,9 @@ export const authAPI = {
   // Get user profile
   getProfile: async () => {
     try {
-      const response = await api.get('/auth/profile');
+      const response = await api.get('/auth/profile', {
+        params: { _t: Date.now() }
+      });
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
